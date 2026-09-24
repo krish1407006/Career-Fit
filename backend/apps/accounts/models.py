@@ -1,5 +1,13 @@
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, UserManager as DjangoUserManager
 from django.db import models
+
+
+class UserManager(DjangoUserManager):
+    """Default manager that pins superuser/admin accounts to the admin role."""
+
+    def create_superuser(self, username, email=None, password=None, **extra_fields):
+        extra_fields.setdefault("role", User.Role.ADMIN)
+        return super().create_superuser(username, email, password, **extra_fields)
 
 
 class User(AbstractUser):
@@ -13,6 +21,8 @@ class User(AbstractUser):
     phone = models.CharField(max_length=30, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    objects = UserManager()
 
     @property
     def is_student(self):

@@ -3,6 +3,7 @@ import { clearTokens, getTokens } from '../api/client'
 import {
   fetchMe,
   login as apiLogin,
+  logout as apiLogout,
   register as apiRegister,
   updateMe,
 } from '../api/auth'
@@ -39,10 +40,14 @@ export function AuthProvider({ children }) {
     await apiRegister(payload)
   }
 
-  const logout = () => {
-    clearTokens()
-    setUser(null)
-    setProfile(null)
+  const logout = async () => {
+    try {
+      await apiLogout()
+    } finally {
+      clearTokens()
+      setUser(null)
+      setProfile(null)
+    }
   }
 
   const updateProfile = async (payload) => {

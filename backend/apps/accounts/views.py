@@ -100,17 +100,21 @@ class MeView(generics.RetrieveUpdateAPIView):
         return self.request.user
 
     def get_serializer_class(self):
-        if self.request.user.role == User.Role.STUDENT:
+        if self.request.user.is_admin_role:
+            return UserSerializer
+        if self.request.user.is_student:
             return StudentProfileDetailSerializer
-        if self.request.user.role == User.Role.RECRUITER:
+        if self.request.user.is_recruiter:
             return RecruiterProfileDetailSerializer
         return UserSerializer
 
     def get(self, request, *args, **kwargs):
         instance = self.get_object()
-        if instance.role == User.Role.STUDENT:
+        if instance.is_admin_role:
+            data = {"user": UserSerializer(instance).data}
+        elif instance.is_student:
             data = StudentProfileDetailSerializer(instance).data
-        elif instance.role == User.Role.RECRUITER:
+        elif instance.is_recruiter:
             data = RecruiterProfileDetailSerializer(instance).data
         else:
             data = {"user": UserSerializer(instance).data}
@@ -118,11 +122,11 @@ class MeView(generics.RetrieveUpdateAPIView):
 
     def put(self, request, *args, **kwargs):
         instance = self.get_object()
-        if instance.role == User.Role.STUDENT:
+        if instance.is_student:
             serializer = StudentProfileDetailSerializer(instance, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             serializer.update(instance, serializer.validated_data)
-        elif instance.role == User.Role.RECRUITER:
+        elif instance.is_recruiter:
             serializer = RecruiterProfileDetailSerializer(instance, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             serializer.update(instance, serializer.validated_data)
@@ -140,7 +144,8 @@ class AdminUserListView(generics.ListAPIView):
     filterset_fields = ["role", "is_active"]
 
     def get_queryset(self):
-        return User.objects.select_related("student_profile", "recruiter_profile").all()
+        return User.objects.select_related("student_profile", "recruiter_profile")\
+            .all().order_by("-created_at")
 
 
 class AdminUserUpdateView(generics.RetrieveUpdateDestroyAPIView):

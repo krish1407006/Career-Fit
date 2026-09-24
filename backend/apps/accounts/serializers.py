@@ -73,9 +73,10 @@ class StudentProfileDetailSerializer(serializers.Serializer):
     profile = StudentProfileSerializer(required=False)
 
     def to_representation(self, instance):
+        profile = getattr(instance, "student_profile", None)
         return {
             "user": UserSerializer(instance).data,
-            "profile": StudentProfileSerializer(instance.student_profile).data,
+            "profile": StudentProfileSerializer(profile).data if profile else None,
         }
 
     def update(self, instance, validated_data):
@@ -92,9 +93,10 @@ class RecruiterProfileDetailSerializer(serializers.Serializer):
     profile = RecruiterProfileSerializer(required=False)
 
     def to_representation(self, instance):
+        profile = getattr(instance, "recruiter_profile", None)
         return {
             "user": UserSerializer(instance).data,
-            "profile": RecruiterProfileSerializer(instance.recruiter_profile).data,
+            "profile": RecruiterProfileSerializer(profile).data if profile else None,
         }
 
     def update(self, instance, validated_data):

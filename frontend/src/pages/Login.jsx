@@ -1,11 +1,21 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { apiError } from '../api/client'
 import { useAuth } from '../context/AuthContext'
+
+const roleHome = (user) => {
+  if (user.is_admin_role) return '/admin'
+  if (user.role === 'recruiter') return '/recruiter'
+  return '/student'
+}
+
+const allowedFrom = (user, pathname) =>
+  pathname === '/profile' || pathname.startsWith(roleHome(user))
 
 export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [form, setForm] = useState({ username: '', password: '' })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -15,8 +25,13 @@ export default function Login() {
     setBusy(true)
     setError('')
     try {
-      await login(form)
-      navigate('/')
+      const user = await login(form)
+      const from = location.state?.from?.pathname
+      if (from && allowedFrom(user, from)) {
+        navigate(from, { replace: true })
+      } else {
+        navigate(roleHome(user), { replace: true })
+      }
     } catch (err) {
       setError(apiError(err, 'Login failed'))
     } finally {
