@@ -1,26 +1,23 @@
-import logging
+from urllib.parse import quote
 
-from django.conf import settings
+from django.http import FileResponse
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.ai.errors import AiError
-from apps.ai.services import analyze_resume
-
-from .models import Resume, ResumeAnalysis
+from .models import Resume
 from .serializers import ResumeSerializer, ResumeUploadSerializer
-from .text_extraction import extract_text_from_resume
-
-logger = logging.getLogger(__name__)
-
-RESUME_PROCESSING_EXISTS = "There is already a resume being processed. Wait for it to finish."
 
 
 class ResumeListCreateView(APIView):
-    """Upload a resume (multipart) or list the caller's resumes."""
+    """Upload a resume (multipart, PDF) or list the caller's resumes.
+
+    A student holds at most one resume: uploading a new file replaces any
+    previous one (file and row are removed). AI analysis is intentionally
+    not run yet (Phase 4 will add resume analysis).
+    """
 
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -33,47 +30,11 @@ class ResumeListCreateView(APIView):
         serializer = ResumeUploadSerializer(data=request.data,
                                             context={"request": request})
         serializer.is_valid(raise_exception=True)
-        if Resume.objects.filter(user=request.user, status=Resume.Status.PROCESSING).exists():
-            return Response({"detail": RESUME_PROCESSING_EXISTS}, status=status.HTTP_409_CONFLICT)
+
+        for old in Resume.objects.filter(user=request.user):
+            old.delete()
 
         resume = serializer.save(user=request.user)
-        try:
-            text = extract_text_from_resume(resume.file)
-            analysis_data = analyze_resume(text)
-            ResumeAnalysis.objects.update_or_create(
-                resume=resume,
-                defaults={
-                    "skills": analysis_data.get("skills") or [],
-                    "summary": analysis_data.get("summary") or "",
-                    "education": analysis_data.get("education") or [],
-                    "experience": analysis_data.get("experience") or [],
-                    "score": int(analysis_data.get("score") or 0),
-                    "suggestions": analysis_data.get("suggestions") or [],
-                    "source": analysis_data.get("source", "offline"),
-                    "raw": analysis_data,
-                },
-            )
-            resume.status = Resume.Status.ANALYZED
-            resume.save()
-        except AiError as exc:
-            resume.status = Resume.Status.FAILED
-            resume.error_message = str(exc)
-            resume.save()
-            logger.exception("Resume analysis failed for resume %s", resume.id)
-            return Response(
-                {"detail": "AI provider unavailable and required.", "error": str(exc)},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
-        except Exception as exc:
-            resume.status = Resume.Status.FAILED
-            resume.error_message = str(exc)
-            resume.save()
-            logger.exception("Resume processing failed for resume %s", resume.id)
-            return Response(
-                {"detail": "Could not process this resume. Try a clear PDF/DOCX."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         return Response(
             ResumeSerializer(resume, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
@@ -103,3 +64,20 @@ class ResumeDetailView(APIView):
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         resume.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ResumeDownloadView(APIView):
+    """Stream the caller's own resume file. Owner-scoped, auth protected."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            resume = Resume.objects.get(pk=pk, user=request.user)
+        except Resume.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        if not resume.file:
+            return Response({"detail": "No file on this resume."}, status=status.HTTP_404_NOT_FOUND)
+        response = FileResponse(resume.file.open("rb"), content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="{quote(resume.original_name)}"'
+        return response

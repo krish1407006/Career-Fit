@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.jobs",
     "apps.resumes",
+    "apps.profiles",
     "apps.assessments",
     "apps.interviews",
     "apps.dashboard",

@@ -8,6 +8,7 @@ from apps.accounts.permissions import IsAdminRole, IsRecruiter, IsStudent
 from apps.assessments.models import Quiz, QuizAttempt
 from apps.interviews.models import InterviewSession
 from apps.jobs.models import Job, JobApplication
+from apps.profiles.utils import profile_completion
 from apps.resumes.models import Resume, ResumeAnalysis
 
 
@@ -62,6 +63,7 @@ def student_dashboard(student):
     apps = JobApplication.objects.filter(student=student)
     attempts = QuizAttempt.objects.filter(student=student)
     interviews = InterviewSession.objects.filter(student=student)
+    profile, _ = StudentProfile.objects.get_or_create(user=student)
 
     return {
         "resume": {
@@ -70,6 +72,12 @@ def student_dashboard(student):
             "skills_count": len(analysis.skills) if analysis else 0,
             "suggestions_count": len(analysis.suggestions) if analysis else 0,
             "source": analysis.source if analysis else None,
+        },
+        "profile": {
+            "completion": profile_completion(profile),
+            "skills_count": profile.skills.count(),
+            "projects_count": profile.projects.count(),
+            "resume_uploaded": resume is not None,
         },
         "jobs": {
             "openings": Job.objects.filter(is_active=True).count(),

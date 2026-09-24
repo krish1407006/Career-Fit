@@ -26,6 +26,7 @@ urlpatterns = [
     path("api/auth/", include("apps.accounts.urls")),
     path("api/resumes/", include("apps.resumes.urls")),
     path("api/", include("apps.jobs.urls")),
+    path("api/", include("apps.profiles.urls")),
     path("api/", include("apps.assessments.urls")),
     path("api/", include("apps.interviews.urls")),
     path("api/", include("apps.dashboard.urls")),
