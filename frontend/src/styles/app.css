@@ -319,3 +319,36 @@ input:disabled { background: var(--bg); color: var(--muted); }
 .interview-turn.a { border-left-color: var(--muted); }
 .interview-turn.e { border-left-color: var(--ok); }
 .interview-turn p { color: var(--text); }
+
+/* ---------- Student profile page ---------- */
+.profile-grid { display: grid; gap: 16px; margin-top: 12px; }
+.profile-form { display: grid; gap: 14px; margin-top: 12px; }
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.section-head h3 { margin: 0 !important; }
+.chip.remove {
+  border: 1px solid #d6def5;
+  background: #eef1fb;
+  cursor: pointer;
+}
+.chip.remove:hover { background: #fdecec; color: var(--bad); border-color: #f5c6c6; }
+.chip-add-row { display: flex; gap: 8px; margin-top: 12px; }
+.chip-add-row input { flex: 1; }
+.check-row { display: flex; align-items: center; gap: 8px; font-weight: 500; color: var(--muted); }
+.item-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fbfcfe;
+}
+.list-item-body { display: grid; gap: 2px; font-size: 14px; }
+.list-item-body p { margin: 0; line-height: 1.5; color: var(--text); }

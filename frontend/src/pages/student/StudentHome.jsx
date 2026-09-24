@@ -22,17 +22,22 @@ export default function StudentHome() {
         Welcome, {profile?.full_name || 'student'}. Track your placement preparation here.
       </p>
       {error && <div className="alert error">{error}</div>}
-      {data && (
+{data && (
         <div className="cards">
           <Stat
-            label="Resume strength"
-            value={data.resume.score != null ? `${data.resume.score}%` : data.resume.status}
-            sub={data.resume.skills_count ? `${data.resume.skills_count} skills extracted` : 'Upload your resume'}
+            label="Profile completion"
+            value={`${data.profile.completion ?? 0}%`}
+            sub={`${data.profile.skills_count} skills · ${data.profile.projects_count} projects`}
+          />
+          <Stat
+            label="Resume"
+            value={data.profile.resume_uploaded ? 'Uploaded' : 'Not uploaded'}
+            sub={data.profile.resume_uploaded ? 'Keep it up to date' : 'Add your resume from the Profile page'}
           />
           <Stat label="Open jobs" value={data.jobs.openings} sub={`${data.jobs.applications} applications sent`} />
           <Stat
             label="Best match"
-            value={data.jobs.best_match ? `${data.jobs.best_match}%` : '—'}
+            value={data.jobs.best_match ? `${data.jobs.best_match}%` : '-'}
             sub={`${data.jobs.shortlisted} shortlisted · ${data.jobs.selected} selected`}
           />
           <Stat label="Quizzes" value={data.quizzes.attempts} sub={data.quizzes.passed ? `${data.quizzes.passed} passed` : 'No attempts yet'} />

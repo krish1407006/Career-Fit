@@ -5,8 +5,8 @@ export default function StudentLayout() {
   return (
     <div>
       <nav className="subnav">
-        <NavLink to="/student/resume" className={link}>
-          Resume
+        <NavLink to="/student/profile" className={link}>
+          Profile
         </NavLink>
         <NavLink to="/student/jobs" className={link}>
           Jobs

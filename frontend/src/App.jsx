@@ -13,7 +13,7 @@ import Layout from './components/Layout'
 import AdminArea from './pages/admin/AdminArea'
 import StudentLayout from './pages/student/StudentLayout'
 import StudentHome from './pages/student/StudentHome'
-import Resumes from './pages/student/Resumes'
+import StudentProfile from './pages/student/StudentProfile'
 import Jobs from './pages/student/Jobs'
 import Quizzes from './pages/student/Quizzes'
 import Interview from './pages/student/Interview'
@@ -90,7 +90,7 @@ function AppRoutes() {
           }
         >
           <Route index element={<StudentHome />} />
-          <Route path="resume" element={<Resumes />} />
+          <Route path="profile" element={<StudentProfile />} />
           <Route path="jobs" element={<Jobs />} />
           <Route path="quizzes" element={<Quizzes />} />
           <Route path="interview" element={<Interview />} />
