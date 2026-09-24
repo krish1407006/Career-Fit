@@ -11,6 +11,9 @@ export default function StudentLayout() {
         <NavLink to="/student/jobs" className={link}>
           Jobs
         </NavLink>
+        <NavLink to="/student/applications" className={link}>
+          My applications
+        </NavLink>
         <NavLink to="/student/quizzes" className={link}>
           Quizzes
         </NavLink>

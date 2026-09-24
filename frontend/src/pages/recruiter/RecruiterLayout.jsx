@@ -8,6 +8,9 @@ export default function RecruiterLayout() {
         <NavLink to="/recruiter/jobs" className={link}>
           My jobs
         </NavLink>
+        <NavLink to="/recruiter/applications" className={link}>
+          Applications
+        </NavLink>
       </nav>
       <Outlet />
     </div>

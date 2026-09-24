@@ -76,13 +76,25 @@ class JobSerializer(serializers.ModelSerializer):
 
 
 def resolve_skills(names):
-    """Turn a list of skill names into Skill records (reusing the catalog)."""
+    """Turn a list of skill names into Skill records (reusing the catalog).
+
+    Matching is case-insensitive so "python" reuses an existing "Python"
+    skill instead of creating a duplicate row, and duplicates within one
+    payload are collapsed to a single skill.
+    """
     skills = []
+    seen = set()
     for name in names or []:
         name = str(name).strip()
         if not name:
             continue
-        skill, _ = Skill.objects.get_or_create(name=name)
+        key = name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        skill = Skill.objects.filter(name__iexact=name).first()
+        if skill is None:
+            skill = Skill.objects.create(name=name)
         skills.append(skill)
     return skills
 

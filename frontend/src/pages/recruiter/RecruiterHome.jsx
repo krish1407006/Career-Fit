@@ -28,6 +28,7 @@ export default function RecruiterHome() {
           <Stat label="Applications" value={j.applications} sub={`avg match ${j.avg_match}%`} />
           <Stat label="Applied" value={j.by_status.applied} />
           <Stat label="Shortlisted" value={j.by_status.shortlisted} />
+          <Stat label="Interview" value={j.by_status.interview} />
           <Stat label="Selected" value={j.by_status.selected} />
           <Stat label="Rejected" value={j.by_status.rejected} />
         </div>

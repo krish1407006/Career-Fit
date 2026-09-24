@@ -15,11 +15,14 @@ import StudentLayout from './pages/student/StudentLayout'
 import StudentHome from './pages/student/StudentHome'
 import StudentProfile from './pages/student/StudentProfile'
 import Jobs from './pages/student/Jobs'
+import JobDetails from './pages/student/JobDetails'
+import MyApplications from './pages/student/MyApplications'
 import Quizzes from './pages/student/Quizzes'
 import Interview from './pages/student/Interview'
 import RecruiterLayout from './pages/recruiter/RecruiterLayout'
 import RecruiterHome from './pages/recruiter/RecruiterHome'
 import JobsManage from './pages/recruiter/JobsManage'
+import RecruiterApplications from './pages/recruiter/RecruiterApplications'
 import './styles/app.css'
 
 const roleHome = (user) => {
@@ -92,6 +95,8 @@ function AppRoutes() {
           <Route index element={<StudentHome />} />
           <Route path="profile" element={<StudentProfile />} />
           <Route path="jobs" element={<Jobs />} />
+          <Route path="jobs/:id" element={<JobDetails />} />
+          <Route path="applications" element={<MyApplications />} />
           <Route path="quizzes" element={<Quizzes />} />
           <Route path="interview" element={<Interview />} />
         </Route>
@@ -105,6 +110,7 @@ function AppRoutes() {
         >
           <Route index element={<RecruiterHome />} />
           <Route path="jobs" element={<JobsManage />} />
+          <Route path="applications" element={<RecruiterApplications />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

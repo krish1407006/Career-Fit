@@ -123,7 +123,8 @@ class JobListView(APIView):
 
         paginator = OptionalPageNumberPagination()
         page = paginator.paginate_queryset(jobs, request, view=self)
-        serializer = JobSerializer(page, many=True, context={"request": request})
+        items = page if page is not None else jobs
+        serializer = JobSerializer(items, many=True, context={"request": request})
         if page is not None:
             return paginator.get_paginated_response(serializer.data)
         return Response(serializer.data)
