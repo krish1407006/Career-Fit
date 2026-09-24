@@ -7,8 +7,9 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentProfile
         fields = [
-            "full_name", "college", "branch", "graduation_year",
-            "cgpa", "phone", "location", "preferred_roles",
+            "full_name", "college", "degree", "branch", "graduation_year",
+            "cgpa", "phone", "location", "bio", "preferred_roles",
+            "preferred_technologies",
         ]
 
 

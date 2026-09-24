@@ -12,18 +12,19 @@ class ResumeAnalysisSerializer(serializers.ModelSerializer):
 
 class ResumeSerializer(serializers.ModelSerializer):
     analysis = ResumeAnalysisSerializer(read_only=True)
-    file_url = serializers.SerializerMethodField()
+    download_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Resume
-        fields = ["id", "original_name", "file_url", "status", "error_message",
+        fields = ["id", "original_name", "download_url", "status", "error_message",
                   "uploaded_at", "updated_at", "analysis"]
 
-    def get_file_url(self, obj):
+    def get_download_url(self, obj):
         request = self.context.get("request")
         if not obj.file:
             return None
-        return request.build_absolute_uri(obj.file.url) if request else obj.file.url
+        path = f"/api/resumes/{obj.id}/download/"
+        return request.build_absolute_uri(path) if request else path
 
 
 class ResumeUploadSerializer(serializers.ModelSerializer):
@@ -34,8 +35,8 @@ class ResumeUploadSerializer(serializers.ModelSerializer):
 
     def validate_file(self, value):
         name = (getattr(value, "name", "") or "").lower()
-        if not name.endswith((".pdf", ".docx", ".txt")):
-            raise serializers.ValidationError("Only PDF, DOCX or TXT files are supported.")
+        if not name.endswith(".pdf"):
+            raise serializers.ValidationError("Only PDF files are supported.")
         if value.size > 10 * 1024 * 1024:
             raise serializers.ValidationError("File size must be under 10 MB.")
         return value
