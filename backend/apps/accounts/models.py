@@ -44,12 +44,16 @@ class StudentProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="student_profile")
     full_name = models.CharField(max_length=150)
     college = models.CharField(max_length=150, blank=True)
+    degree = models.CharField(max_length=150, blank=True)
     branch = models.CharField(max_length=120, blank=True)
     graduation_year = models.PositiveIntegerField(null=True, blank=True)
     cgpa = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
     phone = models.CharField(max_length=30, blank=True)
     location = models.CharField(max_length=120, blank=True)
+    bio = models.TextField(blank=True)
     preferred_roles = models.JSONField(default=list, blank=True)
+    preferred_technologies = models.JSONField(default=list, blank=True)
+    skills = models.ManyToManyField("jobs.Skill", related_name="student_profiles", blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):

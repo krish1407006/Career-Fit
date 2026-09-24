@@ -64,7 +64,7 @@ class ResumeListCreateView(APIView):
                 {"detail": "AI provider unavailable and required.", "error": str(exc)},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
-        except (ValueError, Exception) as exc:
+        except Exception as exc:
             resume.status = Resume.Status.FAILED
             resume.error_message = str(exc)
             resume.save()
