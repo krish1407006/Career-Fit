@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAdminRole, IsStudent
 
-from .models import Question, Quiz, QuizAttempt, QuizQuestionAnswer
+from .models import Difficulty, Question, Quiz, QuizAttempt, QuizQuestionAnswer
 from .serializers import (
     PASS_THRESHOLD,
     QuestionAdminSerializer,
@@ -50,7 +50,7 @@ class QuizAdminListView(APIView):
             title=title,
             description=data.get("description", ""),
             category=data.get("category", Quiz.Category.PYTHON),
-            difficulty=data.get("difficulty", Quiz.Difficulty.MEDIUM),
+            difficulty=data.get("difficulty", Difficulty.MEDIUM),
             duration_minutes=data.get("duration_minutes"),
             is_active=bool(data.get("is_active", True)),
             created_by=request.user,
@@ -301,6 +301,8 @@ def _evaluate(attempt, raw_answers):
                            is_correct=answers[str(q.id)] is not None and answers[str(q.id)] == q.correct_index)
         for q in questions
     ])
+    attempt.save(update_fields=["answers", "correct_count", "incorrect_count", "total",
+                                "score_percent"])
     return correct, incorrect, total, percent
 
 
@@ -319,8 +321,7 @@ def _expire_attempt(attempt):
     _evaluate(attempt, raw)
     attempt.status = QuizAttempt.Status.COMPLETED
     attempt.submitted_at = timezone.now()
-    attempt.save(update_fields=["answers", "correct_count", "incorrect_count", "total",
-                                "score_percent", "status", "submitted_at"])
+    attempt.save(update_fields=["status", "submitted_at"])
 
 
 def _submit_payload(attempt):
@@ -365,7 +366,8 @@ class QuizSubmitView(APIView):
                 attempt = QuizAttempt.objects.select_related("quiz").get(pk=attempt.pk)
                 return Response(
                     {"detail": "Time limit exceeded. Your attempt was submitted "
-                               "automatically with your saved answers."},
+                               "automatically with your saved answers.",
+                     "attempt_id": attempt.id},
                     status=status.HTTP_400_BAD_REQUEST)
 
         _evaluate(attempt, request.data.get("answers", {}))

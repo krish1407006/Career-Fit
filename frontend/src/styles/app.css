@@ -107,6 +107,11 @@ input:disabled { background: var(--bg); color: var(--muted); }
 
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
+.row.row-top { align-items: start; }
+.grow { grid-column: 1 / -1; }
+.checkbox-line { display: flex; align-items: center; gap: 8px; }
+.checkbox-line input { width: auto; }
+.question-draft { border-left: 4px solid var(--primary); display: grid; gap: 10px; }
 
 /* ---------- Buttons ---------- */
 .btn {
@@ -197,6 +202,8 @@ input:disabled { background: var(--bg); color: var(--muted); }
   color: var(--muted);
 }
 .badge.analyzed { background: #e9f9ef; color: var(--ok); }
+.badge.ok { background: #e9f9ef; color: var(--ok); }
+.badge.bad { background: #fdecec; color: var(--bad); }
 .badge.failed { background: #fdecec; color: var(--bad); }
 .badge.processing { background: #fff7e6; color: #d97706; }
 

@@ -56,13 +56,26 @@ class QuestionAdminSerializer(serializers.ModelSerializer):
         options = attrs.get("options")
         correct = attrs.get("correct_index")
         if options is None:
-            raise serializers.ValidationError({"options": "options are required."})
-        if len(options) < 2:
-            raise serializers.ValidationError({"options": "At least 2 options are required."})
-        if correct is None or not (0 <= int(correct) < len(options)):
-            raise serializers.ValidationError(
-                {"correct_index": "correct_index must point inside options."})
-        attrs["options"] = list(options)
+            if self.instance is None:
+                raise serializers.ValidationError({"options": "options are required."})
+        else:
+            options = list(options)
+            if len(options) < 2:
+                raise serializers.ValidationError({"options": "At least 2 options are required."})
+            attrs["options"] = options
+        if correct is not None:
+            reference = options if options is not None else getattr(self.instance, "options", None)
+            if reference is None:
+                raise serializers.ValidationError(
+                    {"correct_index": "correct_index must point inside options."})
+            try:
+                ci = int(correct)
+            except (TypeError, ValueError):
+                raise serializers.ValidationError(
+                    {"correct_index": "correct_index must be an integer."})
+            if not (0 <= ci < len(reference)):
+                raise serializers.ValidationError(
+                    {"correct_index": "correct_index must point inside options."})
         return attrs
 
 
@@ -165,6 +178,7 @@ class QuizAttemptDetailSerializer(serializers.ModelSerializer):
     quiz_category = serializers.CharField(source="quiz.category", read_only=True)
     quiz_difficulty = serializers.CharField(source="quiz.difficulty", read_only=True)
     passed = serializers.SerializerMethodField()
+    score_percent = serializers.SerializerMethodField()
     per_question = serializers.SerializerMethodField()
 
     class Meta:
@@ -176,6 +190,11 @@ class QuizAttemptDetailSerializer(serializers.ModelSerializer):
 
     def get_passed(self, obj):
         return obj.status == QuizAttempt.Status.COMPLETED and obj.score_percent >= PASS_THRESHOLD
+
+    def get_score_percent(self, obj):
+        if obj.status != QuizAttempt.Status.COMPLETED:
+            return None
+        return obj.score_percent
 
     def get_per_question(self, obj):
         if obj.status != QuizAttempt.Status.COMPLETED:

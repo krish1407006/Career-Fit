@@ -10,14 +10,20 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Profile from './pages/Profile'
 import Layout from './components/Layout'
+import AdminLayout from './pages/admin/AdminLayout'
 import AdminArea from './pages/admin/AdminArea'
+import AdminQuizzes from './pages/admin/AdminQuizzes'
 import StudentLayout from './pages/student/StudentLayout'
 import StudentHome from './pages/student/StudentHome'
 import StudentProfile from './pages/student/StudentProfile'
 import Jobs from './pages/student/Jobs'
 import JobDetails from './pages/student/JobDetails'
 import MyApplications from './pages/student/MyApplications'
-import Quizzes from './pages/student/Quizzes'
+import QuizList from './pages/student/QuizList'
+import QuizDetails from './pages/student/QuizDetails'
+import QuizAttempt from './pages/student/QuizAttempt'
+import QuizResult from './pages/student/QuizResult'
+import QuizHistory from './pages/student/QuizHistory'
 import Interview from './pages/student/Interview'
 import RecruiterLayout from './pages/recruiter/RecruiterLayout'
 import RecruiterHome from './pages/recruiter/RecruiterHome'
@@ -80,10 +86,13 @@ function AppRoutes() {
           path="/admin"
           element={
             <RequireRole roles={['admin']}>
-              <AdminArea />
+              <AdminLayout />
             </RequireRole>
           }
-        />
+        >
+          <Route index element={<AdminArea />} />
+          <Route path="quizzes" element={<AdminQuizzes />} />
+        </Route>
         <Route
           path="/student"
           element={
@@ -97,7 +106,11 @@ function AppRoutes() {
           <Route path="jobs" element={<Jobs />} />
           <Route path="jobs/:id" element={<JobDetails />} />
           <Route path="applications" element={<MyApplications />} />
-          <Route path="quizzes" element={<Quizzes />} />
+          <Route path="quizzes" element={<QuizList />} />
+          <Route path="quizzes/history" element={<QuizHistory />} />
+          <Route path="quizzes/:id" element={<QuizDetails />} />
+          <Route path="quizzes/:id/attempt" element={<QuizAttempt />} />
+          <Route path="quizzes/:id/result" element={<QuizResult />} />
           <Route path="interview" element={<Interview />} />
         </Route>
         <Route
