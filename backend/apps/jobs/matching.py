@@ -29,13 +29,21 @@ def tokenise_skills(raw):
 def skill_gap(candidate_skills, required_skills):
     """Compare two skill sets.
 
-    candidate_skills / required_skills may be lists or dicts; normalised.
-    Returns {matched, missing, coverage, score}.
+    candidate_skills / required_skills may be lists, dicts, Skill model
+    instances or a queryset of them; all are normalised before comparison.
+
+    Matching percentage = (matched required skills / total required skills) x 100.
+    Comparison is case-insensitive and duplicate-tolerant.
+
+    Edge cases:
+      * job has no required skills  -> no gaps, coverage 100%
+      * student has no skills       -> coverage 0% (when job has requirements)
+    Returns {have, needed, matched, missing, coverage, score}.
     """
     have = set(tokenise_skills(candidate_skills))
     need = set(tokenise_skills(required_skills))
     if not need:
-        matched = set(have)
+        matched = set()
         missing = []
         coverage = 100.0
     else:
@@ -53,25 +61,28 @@ def skill_gap(candidate_skills, required_skills):
 
 
 def match_job_to_student(job, candidate_skills, preferred_roles=None):
-    """Rank a job against a student's profile. Returns a 0-100 explainable score."""
-    gap = skill_gap(candidate_skills, job.skills_required)
-    skills_score = gap["score"]
+    """Rank a job against a student's skillset.
 
-    role_bonus = 0
+    The score is the transparent skill-matching percentage:
+    (matched required skills / total required skills) x 100.
+
+    ``preferred_roles`` is accepted for API compatibility and reported as a
+    soft role_hint, but it never changes the match percentage itself.
+    """
+    gap = skill_gap(candidate_skills, job.required_skills.all())
+    role_hint = False
     if preferred_roles:
         hay = f"{job.title} {job.company_name}".lower()
         for role in preferred_roles:
             role_l = role.lower()
-            if role_l and role_l in hay or any(
+            if role_l and (role_l in hay or any(
                 t in hay for t in role_l.split() if len(t) > 2
-            ):
-                role_bonus = 30
+            )):
+                role_hint = True
                 break
-
-    # Weight: 70% skills coverage, 30% role preference match.
-    score = round(0.7 * skills_score + role_bonus)
     return {
-        "score": score,
+        "score": gap["score"],
+        "role_hint": role_hint,
         "skill_gap": {
             "matched": gap["matched"],
             "missing": gap["missing"],

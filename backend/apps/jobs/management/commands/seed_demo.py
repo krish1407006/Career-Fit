@@ -87,6 +87,11 @@ QUIZZES = [
 
 User = get_user_model()
 
+
+def ensure_skills(names):
+    """Return a set of skill records matching ``names`` (reusing the catalog)."""
+    return {Skill.objects.get_or_create(name=name)[0] for name in (names or []) if str(name).strip()}
+
 SKILLS = [
     ("Python", "language"), ("JavaScript", "language"), ("TypeScript", "language"),
     ("Java", "language"), ("C++", "language"), ("Go", "language"), ("SQL", "database"),
@@ -114,54 +119,78 @@ JOBS = [
         "description": "Build and maintain Python services, REST APIs and backend features for our SaaS product.",
         "responsibilities": ["Write clean, testable Python code", "Design REST APIs", "Work with PostgreSQL schemas"],
         "skills_required": ["Python", "Django", "PostgreSQL", "REST API", "Git"],
+        "preferred_skills": ["Docker", "Pytest"],
         "job_type": "full_time",
         "location": "Bengaluru",
         "salary_range": "8-14 LPA",
+        "education_required": "B.E./B.Tech in CS/IT",
+        "min_cgpa": 6.0,
+        "experience_required": "0-2 years",
     },
     {
         "title": "Django Developer",
         "description": "Develop web applications with Django, integrate third-party APIs and optimize queries.",
         "responsibilities": ["Build Django REST Framework APIs", "Optimize database queries", "Deploy with Docker"],
         "skills_required": ["Python", "Django", "PostgreSQL", "Docker", "Git"],
+        "preferred_skills": ["Redis", "AWS"],
         "job_type": "full_time",
         "location": "Hyderabad",
         "salary_range": "7-12 LPA",
+        "education_required": "B.E./B.Tech preferred",
+        "min_cgpa": 5.5,
+        "experience_required": "0-2 years",
     },
     {
         "title": "Frontend Developer Intern",
         "description": "Create responsive React interfaces with modern tooling and great attention to UX.",
         "responsibilities": ["Build React components", "Integrate REST APIs", "Write maintainable CSS"],
         "skills_required": ["React", "JavaScript", "HTML", "CSS", "REST API"],
+        "preferred_skills": ["TypeScript", "Vue.js"],
         "job_type": "internship",
         "location": "Remote",
         "salary_range": "Stipend 20k/month",
+        "education_required": "Pursuing any degree",
+        "min_cgpa": None,
+        "experience_required": "Fresher",
     },
     {
         "title": "Machine Learning Engineer",
         "description": "Build ML pipelines for NLP products, experiment with models and deploy to production.",
         "responsibilities": ["Train and evaluate ML models", "Build data pipelines", "Deploy models with Docker"],
         "skills_required": ["Machine Learning", "Python", "NLP", "TensorFlow", "Docker", "Git"],
+        "preferred_skills": ["PyTorch", "AWS"],
         "job_type": "full_time",
         "location": "Pune",
         "salary_range": "12-20 LPA",
+        "education_required": "MTech/MSc or equivalent",
+        "min_cgpa": 7.0,
+        "experience_required": "1-3 years",
     },
     {
         "title": "Full Stack Developer",
         "description": "End-to-end feature development across Django backend and React frontend.",
         "responsibilities": ["Develop full-stack features", "Write unit tests", "Participate in code reviews"],
         "skills_required": ["Python", "Django", "React", "JavaScript", "PostgreSQL", "Git"],
+        "preferred_skills": ["Docker", "TypeScript"],
         "job_type": "full_time",
         "location": "Bengaluru",
         "salary_range": "10-16 LPA",
+        "education_required": "B.E./B.Tech in CS/IT",
+        "min_cgpa": 6.5,
+        "experience_required": "0-3 years",
     },
     {
         "title": "Data Analyst",
         "description": "Analyze business data, build dashboards and derive actionable insights.",
         "responsibilities": ["Clean and analyze data", "Build Power BI dashboards", "Write SQL queries"],
         "skills_required": ["SQL", "Power BI", "Python", "Pandas"],
+        "preferred_skills": ["Tableau", "NumPy"],
         "job_type": "full_time",
         "location": "Remote",
         "salary_range": "6-9 LPA",
+        "education_required": "Any degree with quantitative focus",
+        "min_cgpa": 6.0,
+        "experience_required": "Fresher",
     },
 ]
 
@@ -207,10 +236,16 @@ class Command(BaseCommand):
 
         job_count = 0
         for data in JOBS:
-            _, was_created = Job.objects.get_or_create(
-                recruiter=recruiter, title=data["title"], company_name=profile.company_name,
-                defaults={**data},
+            job_data = dict(data)
+            required_names = job_data.pop("skills_required", [])
+            preferred_names = job_data.pop("preferred_skills", [])
+            job, was_created = Job.objects.get_or_create(
+                recruiter=recruiter, title=job_data["title"], company_name=profile.company_name,
+                defaults=job_data,
             )
+            if was_created:
+                job.required_skills.set(ensure_skills(required_names))
+                job.preferred_skills.set(ensure_skills(preferred_names))
             job_count += int(was_created)
 
         quiz_count = 0

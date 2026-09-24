@@ -1,7 +1,5 @@
 from rest_framework import serializers
 
-from apps.accounts.serializers import UserSerializer
-
 from .models import Job, JobApplication, Skill
 from .matching import match_job_to_student
 
@@ -14,6 +12,13 @@ class SkillSerializer(serializers.ModelSerializer):
 
 class JobSerializer(serializers.ModelSerializer):
     recruiter_name = serializers.CharField(source="recruiter.username", read_only=True)
+    company_name = serializers.CharField()
+    title = serializers.CharField()
+    description = serializers.CharField()
+    status = serializers.CharField(read_only=True)
+    skills_required = serializers.SerializerMethodField()
+    required_skills = SkillSerializer(many=True, read_only=True)
+    preferred_skills = SkillSerializer(many=True, read_only=True)
     application_count = serializers.SerializerMethodField()
     match = serializers.SerializerMethodField()
     applied = serializers.SerializerMethodField()
@@ -24,11 +29,17 @@ class JobSerializer(serializers.ModelSerializer):
         model = Job
         fields = [
             "id", "recruiter", "recruiter_name", "company_name", "title",
-            "description", "responsibilities", "skills_required", "job_type",
-            "location", "salary_range", "openings", "is_active", "expires_at",
-            "created_at", "updated_at", "application_count", "match", "applied",
-            "application_id", "application_status",
+            "description", "responsibilities", "required_skills",
+            "preferred_skills", "skills_required", "job_type", "location",
+            "salary_range", "education_required", "min_cgpa",
+            "experience_required", "openings", "is_active", "status",
+            "application_deadline", "created_at", "updated_at",
+            "application_count", "match", "applied", "application_id",
+            "application_status",
         ]
+
+    def get_skills_required(self, obj):
+        return [s.name for s in obj.required_skills.all()]
 
     def get_application_count(self, obj):
         return obj.application_count if hasattr(obj, "application_count") else None
@@ -64,14 +75,65 @@ class JobSerializer(serializers.ModelSerializer):
         return apps.status if apps else None
 
 
+def resolve_skills(names):
+    """Turn a list of skill names into Skill records (reusing the catalog)."""
+    skills = []
+    for name in names or []:
+        name = str(name).strip()
+        if not name:
+            continue
+        skill, _ = Skill.objects.get_or_create(name=name)
+        skills.append(skill)
+    return skills
+
+
 class JobCreateUpdateSerializer(serializers.ModelSerializer):
+    """Write serializer for jobs.
+
+    ``skills_required`` (names) and ``required_skills``/``preferred_skills``
+    (names or ids) map onto the Job <-> Skill relationships.
+    """
+
+    skills_required = serializers.ListField(
+        child=serializers.CharField(), required=False, allow_empty=True, write_only=True,
+    )
+    preferred_skills = serializers.ListField(
+        child=serializers.CharField(), required=False, allow_empty=True, write_only=True,
+    )
+
     class Meta:
         model = Job
         fields = [
             "id", "company_name", "title", "description", "responsibilities",
-            "skills_required", "job_type", "location", "salary_range",
-            "openings", "is_active", "expires_at",
+            "skills_required", "preferred_skills", "job_type", "location",
+            "salary_range", "education_required", "min_cgpa",
+            "experience_required", "openings", "is_active", "application_deadline",
         ]
+
+    def validate_min_cgpa(self, value):
+        if value is not None and not (0 <= float(value) <= 10):
+            raise serializers.ValidationError("Minimum CGPA must be between 0 and 10.")
+        return value
+
+    def create(self, validated_data):
+        required_names = validated_data.pop("skills_required", [])
+        preferred_names = validated_data.pop("preferred_skills", [])
+        job = Job.objects.create(**validated_data)
+        job.required_skills.set(resolve_skills(required_names))
+        job.preferred_skills.set(resolve_skills(preferred_names))
+        return job
+
+    def update(self, instance, validated_data):
+        required_names = validated_data.pop("skills_required", None)
+        preferred_names = validated_data.pop("preferred_skills", None)
+        for key, value in validated_data.items():
+            setattr(instance, key, value)
+        instance.save()
+        if required_names is not None:
+            instance.required_skills.set(resolve_skills(required_names))
+        if preferred_names is not None:
+            instance.preferred_skills.set(resolve_skills(preferred_names))
+        return instance
 
 
 class JobApplicationSerializer(serializers.ModelSerializer):
@@ -80,19 +142,29 @@ class JobApplicationSerializer(serializers.ModelSerializer):
     company = serializers.CharField(source="job.company_name", read_only=True)
     job_type = serializers.CharField(source="job.job_type", read_only=True)
     location = serializers.CharField(source="job.location", read_only=True)
+    resume = serializers.SerializerMethodField()
 
     class Meta:
         model = JobApplication
         fields = [
             "id", "job_id", "job_title", "company", "job_type", "location", "status",
-            "match_score", "cover_note", "applied_at", "updated_at",
+            "match_score", "cover_note", "remarks", "resume", "applied_at", "updated_at",
         ]
+
+    def get_resume(self, obj):
+        if not obj.resume_id:
+            return None
+        return {
+            "id": obj.resume_id,
+            "original_name": obj.resume.original_name,
+        }
 
 
 class ApplicantSummary(serializers.Serializer):
     application_id = serializers.IntegerField(source="id")
     status = serializers.CharField()
     cover_note = serializers.CharField()
+    remarks = serializers.CharField()
     applied_at = serializers.DateTimeField()
     match_score = serializers.IntegerField()
     student_id = serializers.IntegerField()
@@ -102,20 +174,36 @@ class ApplicantSummary(serializers.Serializer):
     resume = serializers.SerializerMethodField()
 
     def get_profile(self, obj):
-        profile = obj.student.student_profile
+        profile = getattr(obj.student, "student_profile", None)
+        if not profile:
+            return None
         return {
             "full_name": profile.full_name,
             "college": profile.college,
+            "degree": profile.degree,
             "branch": profile.branch,
             "graduation_year": profile.graduation_year,
             "cgpa": str(profile.cgpa) if profile.cgpa else None,
             "location": profile.location,
+            "skills": [s.name for s in profile.skills.all()],
         }
 
     def get_resume(self, obj):
-        analysis = obj._latest_analysis
+        analysis = getattr(obj, "_latest_analysis", None)
+        resume = obj.resume
         return {
-            "score": analysis.score,
-            "skills": analysis.skills,
-            "source": analysis.source,
-        } if analysis else None
+            "id": resume.id if resume else None,
+            "name": resume.original_name if resume else None,
+            "score": analysis.score if analysis else None,
+            "skills": analysis.skills if analysis else None,
+            "source": analysis.source if analysis else None,
+        }
+
+
+class RecruiterApplicationSerializer(ApplicantSummary):
+    """Recruiter-facing application row: application + job + candidate summary."""
+
+    job_id = serializers.IntegerField(source="job.id", read_only=True)
+    job_title = serializers.CharField(source="job.title", read_only=True)
+    company = serializers.CharField(source="job.company_name", read_only=True)
+    job_type = serializers.CharField(source="job.job_type", read_only=True)

@@ -65,6 +65,13 @@ def student_dashboard(student):
     interviews = InterviewSession.objects.filter(student=student)
     profile, _ = StudentProfile.objects.get_or_create(user=student)
 
+    recent = list(
+        apps.select_related("job", "resume")[:5].values(
+            "id", "job_id", "job__title", "job__company_name", "job__location",
+            "status", "match_score", "applied_at",
+        )
+    )
+
     return {
         "resume": {
             "status": resume.status if resume else "none",
@@ -81,10 +88,20 @@ def student_dashboard(student):
         },
         "jobs": {
             "openings": Job.objects.filter(is_active=True).count(),
+            "available_jobs": Job.objects.filter(is_active=True).count(),
+            "total_applications": apps.count(),
             "applications": apps.count(),
             "shortlisted": apps.filter(status=JobApplication.Status.SHORTLISTED).count(),
             "selected": apps.filter(status=JobApplication.Status.SELECTED).count(),
             "best_match": apps.order_by("-match_score").first().match_score if apps.exists() else None,
+            "by_status": {
+                "applied": apps.filter(status=JobApplication.Status.APPLIED).count(),
+                "shortlisted": apps.filter(status=JobApplication.Status.SHORTLISTED).count(),
+                "interview": apps.filter(status=JobApplication.Status.INTERVIEW).count(),
+                "selected": apps.filter(status=JobApplication.Status.SELECTED).count(),
+                "rejected": apps.filter(status=JobApplication.Status.REJECTED).count(),
+            },
+            "recent": recent,
         },
         "quizzes": {
             "attempts": attempts.count(),
@@ -109,6 +126,7 @@ def recruiter_dashboard(recruiter):
             "by_status": {
                 "applied": app_qs.filter(status=JobApplication.Status.APPLIED).count(),
                 "shortlisted": app_qs.filter(status=JobApplication.Status.SHORTLISTED).count(),
+                "interview": app_qs.filter(status=JobApplication.Status.INTERVIEW).count(),
                 "selected": app_qs.filter(status=JobApplication.Status.SELECTED).count(),
                 "rejected": app_qs.filter(status=JobApplication.Status.REJECTED).count(),
             },

@@ -26,13 +26,17 @@ class Job(models.Model):
     title = models.CharField(max_length=160)
     description = models.TextField()
     responsibilities = models.JSONField(default=list, blank=True)
-    skills_required = models.JSONField(default=list, blank=True)
+    required_skills = models.ManyToManyField(Skill, related_name="jobs_required", blank=True)
+    preferred_skills = models.ManyToManyField(Skill, related_name="jobs_preferred", blank=True)
     job_type = models.CharField(max_length=20, choices=JobType.choices, default=JobType.FULL_TIME)
     location = models.CharField(max_length=120)
     salary_range = models.CharField(max_length=120, blank=True)
+    education_required = models.CharField(max_length=160, blank=True)
+    min_cgpa = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    experience_required = models.CharField(max_length=120, blank=True)
     openings = models.PositiveIntegerField(default=1)
     is_active = models.BooleanField(default=True)
-    expires_at = models.DateField(null=True, blank=True)
+    application_deadline = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -43,19 +47,34 @@ class Job(models.Model):
     def __str__(self):
         return f"{self.title} @ {self.company_name}"
 
+    @property
+    def status(self):
+        return "active" if self.is_active else "closed"
+
+    @property
+    def skills_required(self):
+        """Backwards-compatible list of required-skill names used by the API surface."""
+        return [s.name for s in self.required_skills.all()]
+
 
 class JobApplication(models.Model):
     class Status(models.TextChoices):
         APPLIED = "applied", "Applied"
         SHORTLISTED = "shortlisted", "Shortlisted"
-        REJECTED = "rejected", "Rejected"
+        INTERVIEW = "interview", "Interview"
         SELECTED = "selected", "Selected"
+        REJECTED = "rejected", "Rejected"
 
     student = models.ForeignKey(User, on_delete=models.CASCADE, related_name="job_applications")
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="applications")
+    resume = models.ForeignKey(
+        "resumes.Resume", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="applications",
+    )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.APPLIED)
     match_score = models.PositiveSmallIntegerField(default=0)
     cover_note = models.TextField(blank=True)
+    remarks = models.TextField(blank=True)
     applied_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

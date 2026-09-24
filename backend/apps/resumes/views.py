@@ -7,6 +7,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.jobs.models import JobApplication
+
 from .models import Resume
 from .serializers import ResumeSerializer, ResumeUploadSerializer
 
@@ -67,17 +69,34 @@ class ResumeDetailView(APIView):
 
 
 class ResumeDownloadView(APIView):
-    """Stream the caller's own resume file. Owner-scoped, auth protected."""
+    """Stream a resume file.
+
+    The resume owner may always download their own resume. A recruiter may
+    download a candidate's resume only when that candidate has applied to one
+    of the recruiter's jobs and the application used this resume, keeping
+    private student documents out of reach of unrelated recruiters.
+    """
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
-        try:
-            resume = Resume.objects.get(pk=pk, user=request.user)
-        except Resume.DoesNotExist:
+        resume = Resume.objects.filter(pk=pk).first()
+        if not resume:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        if not self._can_access(resume, request.user):
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         if not resume.file:
             return Response({"detail": "No file on this resume."}, status=status.HTTP_404_NOT_FOUND)
         response = FileResponse(resume.file.open("rb"), content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="{quote(resume.original_name)}"'
         return response
+
+    @staticmethod
+    def _can_access(resume, user):
+        if resume.user_id == user.id:
+            return True
+        if user.is_recruiter:
+            return JobApplication.objects.filter(
+                student=resume.user_id, job__recruiter=user, resume=resume
+            ).exists()
+        return False
