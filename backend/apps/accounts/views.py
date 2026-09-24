@@ -1,6 +1,9 @@
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .serializers import (
@@ -31,6 +34,45 @@ class TokenObtainPairWithRoleView(TokenObtainPairView):
             except (User.DoesNotExist, KeyError):
                 pass
         return response
+
+
+class LoginView(TokenObtainPairWithRoleView):
+    """POST /api/auth/login/ with {username, password}.
+
+    Returns access + refresh tokens plus a serialized copy of the user
+    (including role) so the frontend can redirect by role immediately.
+    """
+
+
+class LogoutView(APIView):
+    """POST /api/auth/logout/ with {refresh}.
+
+    Blacklists the presented refresh token. Access tokens are short-lived
+    and simply expire. The endpoint requires an authenticated caller so
+    anonymous clients cannot spam token blacklisting.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        refresh = request.data.get("refresh")
+        if not refresh:
+            return Response(
+                {"detail": "refresh token is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            token = RefreshToken(refresh)
+            token.blacklist()
+        except TokenError:
+            return Response(
+                {"detail": "Invalid or expired refresh token."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(
+            {"detail": "Logged out successfully."},
+            status=status.HTTP_205_RESET_CONTENT,
+        )
 
 
 class RegisterView(generics.CreateAPIView):
