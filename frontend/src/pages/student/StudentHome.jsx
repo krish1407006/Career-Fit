@@ -26,7 +26,7 @@ export default function StudentHome() {
         <div className="cards">
           <Stat
             label="Resume strength"
-            value={data.resume.analyzed ? `${data.resume.score}%` : data.resume.status}
+            value={data.resume.score != null ? `${data.resume.score}%` : data.resume.status}
             sub={data.resume.skills_count ? `${data.resume.skills_count} skills extracted` : 'Upload your resume'}
           />
           <Stat label="Open jobs" value={data.jobs.openings} sub={`${data.jobs.applications} applications sent`} />
