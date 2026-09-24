@@ -5,8 +5,8 @@ export default function Layout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     navigate('/login')
   }
 
@@ -35,6 +35,11 @@ export default function Layout() {
               Student
             </NavLink>
           )}
+          {user?.is_admin_role && (
+            <NavLink to="/admin" className={navLink}>
+              Admin
+            </NavLink>
+          )}
         </nav>
         <div className="topbar-right">
           <span className="topbar-user">
@@ -45,7 +50,7 @@ export default function Layout() {
           </button>
         </div>
       </header>
-      <main className="page">
+      <main>
         <Outlet />
       </main>
     </div>

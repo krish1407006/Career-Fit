@@ -8,17 +8,25 @@ import {
 import { useAuth, AuthProvider } from './context/AuthContext'
 import Login from './pages/Login'
 import Register from './pages/Register'
-import Dashboard from './pages/Dashboard'
 import Profile from './pages/Profile'
 import Layout from './components/Layout'
+import AdminArea from './pages/admin/AdminArea'
 import StudentLayout from './pages/student/StudentLayout'
+import StudentHome from './pages/student/StudentHome'
 import Resumes from './pages/student/Resumes'
 import Jobs from './pages/student/Jobs'
 import Quizzes from './pages/student/Quizzes'
 import Interview from './pages/student/Interview'
 import RecruiterLayout from './pages/recruiter/RecruiterLayout'
+import RecruiterHome from './pages/recruiter/RecruiterHome'
 import JobsManage from './pages/recruiter/JobsManage'
 import './styles/app.css'
+
+const roleHome = (user) => {
+  if (user.is_admin_role) return '/admin'
+  if (user.role === 'recruiter') return '/recruiter'
+  return '/student'
+}
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth()
@@ -32,8 +40,15 @@ function RequireRole({ roles, children }) {
   const { user, loading } = useAuth()
   if (loading) return <div className="page-loading">Loading…</div>
   if (!user) return <Navigate to="/login" replace />
-  if (!roles.includes(user.role)) return <Navigate to="/" replace />
+  const allowed =
+    roles.includes(user.role) || (roles.includes('admin') && user.is_admin_role)
+  if (!allowed) return <Navigate to={roleHome(user)} replace />
   return children
+}
+
+function HomeRedirect() {
+  const { user } = useAuth()
+  return <Navigate to={roleHome(user)} replace />
 }
 
 function AppRoutes() {
@@ -46,7 +61,7 @@ function AppRoutes() {
           path="/"
           element={
             <RequireAuth>
-              <Dashboard />
+              <HomeRedirect />
             </RequireAuth>
           }
         />
@@ -58,31 +73,39 @@ function AppRoutes() {
             </RequireAuth>
           }
         />
-      </Route>
-      <Route
-        path="/student"
-        element={
-          <RequireRole roles={['student']}>
-            <StudentLayout />
-          </RequireRole>
-        }
-      >
-        <Route index element={<Navigate to="resume" replace />} />
-        <Route path="resume" element={<Resumes />} />
-        <Route path="jobs" element={<Jobs />} />
-        <Route path="quizzes" element={<Quizzes />} />
-        <Route path="interview" element={<Interview />} />
-      </Route>
-      <Route
-        path="/recruiter"
-        element={
-          <RequireRole roles={['recruiter']}>
-            <RecruiterLayout />
-          </RequireRole>
-        }
-      >
-        <Route index element={<Navigate to="jobs" replace />} />
-        <Route path="jobs" element={<JobsManage />} />
+        <Route
+          path="/admin"
+          element={
+            <RequireRole roles={['admin']}>
+              <AdminArea />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/student"
+          element={
+            <RequireRole roles={['student']}>
+              <StudentLayout />
+            </RequireRole>
+          }
+        >
+          <Route index element={<StudentHome />} />
+          <Route path="resume" element={<Resumes />} />
+          <Route path="jobs" element={<Jobs />} />
+          <Route path="quizzes" element={<Quizzes />} />
+          <Route path="interview" element={<Interview />} />
+        </Route>
+        <Route
+          path="/recruiter"
+          element={
+            <RequireRole roles={['recruiter']}>
+              <RecruiterLayout />
+            </RequireRole>
+          }
+        >
+          <Route index element={<RecruiterHome />} />
+          <Route path="jobs" element={<JobsManage />} />
+        </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiError } from '../../api/client'
+import { fetchAdminUsers } from '../../api/auth'
 import { fetchAdminDashboard } from '../../api/dashboard'
 import Stat from '../../components/Stat'
 
@@ -9,14 +10,10 @@ export default function AdminArea() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    Promise.all([
-      fetchAdminDashboard(),
-      fetch('/api/auth/admin/users/', { headers: { Authorization: `Bearer ${localStorage.getItem('careerai_access')}` } })
-        .then((r) => r.json()),
-    ])
-      .then(([dash, userResp]) => {
+    Promise.all([fetchAdminDashboard(), fetchAdminUsers()])
+      .then(([dash, rows]) => {
         setData(dash)
-        setUsers(Array.isArray(userResp) ? userResp : userResp.results || [])
+        setUsers(rows)
       })
       .catch((e) => setError(apiError(e, 'Could not load admin area')))
   }, [])
