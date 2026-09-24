@@ -53,6 +53,7 @@ class ProfileView(APIView):
 class EducationListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsStudent]
     serializer_class = EducationSerializer
+    pagination_class = None
 
     def get_queryset(self):
         return Education.objects.filter(profile__user=self.request.user)
@@ -75,6 +76,7 @@ class EducationDetailView(generics.RetrieveUpdateDestroyAPIView):
 class ProjectListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsStudent]
     serializer_class = ProjectSerializer
+    pagination_class = None
 
     def get_queryset(self):
         return Project.objects.filter(profile__user=self.request.user)
@@ -97,6 +99,7 @@ class ProjectDetailView(generics.RetrieveUpdateDestroyAPIView):
 class CertificationListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsStudent]
     serializer_class = CertificationSerializer
+    pagination_class = None
 
     def get_queryset(self):
         return Certification.objects.filter(profile__user=self.request.user)
