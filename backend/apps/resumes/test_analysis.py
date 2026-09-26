@@ -50,7 +50,8 @@ REAL_PDF_TEXT = (
 
 def build_pdf(text=REAL_PDF_TEXT):
     """Assemble a minimal single-page PDF, optionally with no text layer."""
-    stream = text if text is None else text + b"\n"
+    stream = (text or b"") + b"\n"
+
     objects = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
         b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
