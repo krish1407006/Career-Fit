@@ -4,10 +4,30 @@ from .models import Resume, ResumeAnalysis
 
 
 class ResumeAnalysisSerializer(serializers.ModelSerializer):
+    """Student-facing analysis payload.
+
+    ``extracted_text`` and ``raw`` are intentionally never exposed: the resume
+    text stays server-side and the raw provider payload is for auditing only.
+    """
+
+    resume_id = serializers.IntegerField(source="resume.id", read_only=True)
+    resume_name = serializers.CharField(source="resume.original_name", read_only=True)
+    score_note = serializers.CharField(read_only=True)
+    has_analysis = serializers.SerializerMethodField()
+
     class Meta:
         model = ResumeAnalysis
-        fields = ["skills", "summary", "education", "experience", "score",
-                  "suggestions", "source", "analyzed_at"]
+        fields = [
+            "id", "resume_id", "resume_name", "status", "has_analysis",
+            "summary", "detected_skills", "strengths", "skill_gaps",
+            "improvements", "recommended_roles", "education", "experience",
+            "job_relevance", "score", "score_note", "source", "provider",
+            "notice", "error_message", "analyzed_at", "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_has_analysis(self, obj):
+        return obj.is_completed
 
 
 class ResumeSerializer(serializers.ModelSerializer):

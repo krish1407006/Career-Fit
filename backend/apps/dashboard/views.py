@@ -79,6 +79,17 @@ def student_dashboard(student):
             "skills_count": len(analysis.skills) if analysis else 0,
             "suggestions_count": len(analysis.suggestions) if analysis else 0,
             "source": analysis.source if analysis else None,
+            # Phase 6 - lightweight resume-analysis snapshot (no analytics yet).
+            "uploaded": resume is not None,
+            "analysis_completed": bool(
+                analysis and analysis.status == ResumeAnalysis.Status.COMPLETED
+            ),
+            "analysis_status": analysis.status if analysis else None,
+            "detected_skills_count": len(analysis.detected_skills) if analysis else 0,
+            "skill_gaps_count": len(analysis.skill_gaps) if analysis else 0,
+            "strengths_count": len(analysis.strengths) if analysis else 0,
+            "improvements_count": len(analysis.improvements) if analysis else 0,
+            "recommended_roles_count": len(analysis.recommended_roles) if analysis else 0,
         },
         "profile": {
             "completion": profile_completion(profile),

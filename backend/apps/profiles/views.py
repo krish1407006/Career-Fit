@@ -8,6 +8,7 @@ from apps.accounts.models import StudentProfile
 from apps.accounts.permissions import IsStudent
 from apps.jobs.models import Skill
 from apps.jobs.serializers import SkillSerializer
+from apps.resumes.analysis import skill_source_map
 
 from .models import Certification, Education, Project
 from .serializers import (
@@ -17,6 +18,7 @@ from .serializers import (
     ProjectSerializer,
     SkillInputSerializer,
     get_or_create_skill,
+    serialize_student_skills,
 )
 
 
@@ -126,7 +128,7 @@ class MySkillsView(APIView):
 
     def get(self, request):
         profile = _get_or_create_profile(request.user)
-        return Response(SkillSerializer(profile.skills.all(), many=True).data)
+        return Response(serialize_student_skills(profile))
 
     def post(self, request):
         serializer = SkillInputSerializer(data=request.data)
@@ -135,10 +137,10 @@ class MySkillsView(APIView):
         skill = get_or_create_skill(serializer.validated_data["name"])
         if skill not in profile.skills.all():
             profile.skills.add(skill)
-        return Response(
-            SkillSerializer(skill).data,
-            status=status.HTTP_201_CREATED,
-        )
+        row = dict(SkillSerializer(skill).data)
+        # Manual entry never rewrites the analysis; only the badge may differ.
+        row["source"] = "ai" if skill.name.strip().lower() in skill_source_map(request.user) else "manual"
+        return Response(row, status=status.HTTP_201_CREATED)
 
 
 class RemoveSkillView(APIView):

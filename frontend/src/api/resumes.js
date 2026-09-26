@@ -12,6 +12,17 @@ export const uploadResume = (file) => {
 
 export const deleteResume = (id) => client.delete(`/resumes/${id}/`)
 
+// Phase 6 - AI-powered resume analysis
+export const analyzeResume = (id, jobId) =>
+  client.post(`/resumes/${id}/analyze/`, jobId ? { job_id: jobId } : {}).then(({ data }) => data)
+
+export const fetchResumeAnalysis = (id) =>
+  client.get(`/resumes/${id}/analysis/`).then(({ data }) => data)
+
+export const fetchResumeAnalysisById = (analysisId) =>
+  client.get(`/resume-analyses/${analysisId}/`).then(({ data }) => data)
+
+
 export const downloadResume = async (id, filename) => {
   const { data } = await client.get(`/resumes/${id}/download/`, { responseType: 'blob' })
   const url = URL.createObjectURL(data)

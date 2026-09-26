@@ -4,10 +4,27 @@ from apps.accounts.models import StudentProfile
 from apps.accounts.serializers import StudentProfileSerializer
 from apps.jobs.models import Skill
 from apps.jobs.serializers import SkillSerializer
+from apps.resumes.analysis import skill_source_map
 from apps.resumes.serializers import ResumeSerializer
 
 from .models import Certification, Education, Project
 from .utils import profile_completion
+
+
+def serialize_student_skills(profile, *, ai_names=None):
+    """Profile skills plus a ``source`` of "manual" or "ai".
+
+    The distinction is derived from the student's latest completed resume
+    analysis, so no duplicate skill rows or extra join table are needed and
+    manually entered skills are never rewritten.
+    """
+    detected = ai_names if ai_names is not None else skill_source_map(profile.user)
+    rows = []
+    for skill in profile.skills.all().order_by("name"):
+        row = dict(SkillSerializer(skill).data)
+        row["source"] = "ai" if skill.name.strip().lower() in detected else "manual"
+        rows.append(row)
+    return rows
 
 
 class EducationSerializer(serializers.ModelSerializer):
@@ -50,7 +67,7 @@ class ProfileDetailSerializer(serializers.Serializer):
             resume = profile.user.resumes.first()
         return {
             "profile": StudentProfileSerializer(profile).data,
-            "skills": SkillSerializer(profile.skills.all(), many=True).data,
+            "skills": serialize_student_skills(profile),
             "education": EducationSerializer(profile.education.all(), many=True).data,
             "projects": ProjectSerializer(profile.projects.all(), many=True).data,
             "certifications": CertificationSerializer(profile.certifications.all(), many=True).data,

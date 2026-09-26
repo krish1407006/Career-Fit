@@ -12,5 +12,7 @@ class ResumeAdmin(admin.ModelAdmin):
 
 @admin.register(ResumeAnalysis)
 class ResumeAnalysisAdmin(admin.ModelAdmin):
-    list_display = ("resume", "score", "source", "analyzed_at")
-    search_fields = ("resume__user__username",)
+    list_display = ("resume", "status", "score", "source", "provider", "analyzed_at")
+    list_filter = ("status", "source", "provider")
+    search_fields = ("resume__user__username", "resume__original_name")
+    readonly_fields = ("extracted_text", "raw")

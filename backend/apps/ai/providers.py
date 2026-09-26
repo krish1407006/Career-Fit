@@ -21,6 +21,25 @@ from django.conf import settings
 from .errors import AiParseError, ProviderUnavailable
 
 
+def _post(url, **kwargs):
+    """POST to the provider, converting transport/credential failures into a
+    typed error so no HTTP detail, key or traceback reaches feature code."""
+    try:
+        resp = httpx.post(url, **kwargs)
+        resp.raise_for_status()
+        return resp
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code
+        if status in (401, 403):
+            raise ProviderUnavailable("AI provider rejected the configured API key")
+        if status == 429:
+            raise ProviderUnavailable("AI provider rate limit reached; try again shortly")
+        raise ProviderUnavailable(f"AI provider returned HTTP {status}")
+    except httpx.HTTPError as exc:
+        raise ProviderUnavailable(f"AI provider unreachable ({exc.__class__.__name__})")
+
+
+
 class _Client:
     def __init__(self):
         self.provider = (settings.AI_PROVIDER or "").lower()
@@ -48,9 +67,11 @@ class _Client:
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
         headers = {"Authorization": f"Bearer {self.key}"}
-        resp = httpx.post(url, json=payload, headers=headers, timeout=timeout)
-        resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"]
+        resp = _post(url, json=payload, headers=headers, timeout=timeout)
+        try:
+            return resp.json()["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError, ValueError):
+            raise ProviderUnavailable("AI provider returned an unexpected response shape")
 
     def _gemini_chat(self, messages, *, json_mode, temperature, timeout):
         url = (
@@ -61,13 +82,13 @@ class _Client:
         for m in messages:
             role = "user" if m["role"] == "user" else "model"
             contents.append({"role": role, "parts": [{"text": m["content"]}]})
-        resp = httpx.post(url, json={"contents": contents, "generationConfig": {"temperature": temperature}},
-                          timeout=timeout)
-        resp.raise_for_status()
-        body = resp.json()
+        resp = _post(url, json={"contents": contents,
+                                "generationConfig": {"temperature": temperature}},
+                     timeout=timeout)
         try:
+            body = resp.json()
             text = body["candidates"][0]["content"]["parts"][0]["text"]
-        except (KeyError, IndexError):
+        except (KeyError, IndexError, TypeError, ValueError):
             raise ProviderUnavailable("Gemini returned no content")
         # Strip markdown code fences that Gemini sometimes wraps JSON in.
         if text.strip().startswith("```"):

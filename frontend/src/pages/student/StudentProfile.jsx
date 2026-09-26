@@ -15,7 +15,8 @@ import {
   updateProject,
   updateProfile,
 } from '../../api/profile'
-import { deleteResume, downloadResume, uploadResume } from '../../api/resumes'
+import { deleteResume, downloadResume, analyzeResume, uploadResume } from '../../api/resumes'
+import ResumeAnalysisCard from '../../components/resume/ResumeAnalysisCard'
 
 // ---------------------------------------------------------------------------
 // Personal information
@@ -157,7 +158,13 @@ function SkillsCard({ skills, onChanged }) {
       {skills.length ? (
         <div className="chips">
           {skills.map((s) => (
-            <button key={s.id} type="button" className="chip remove" onClick={() => remove(s.id)} title="Remove skill">
+            <button
+              key={s.id}
+              type="button"
+              className={`chip remove ${s.source === 'ai' ? 'ai-chip' : ''}`}
+              onClick={() => remove(s.id)}
+              title={s.source === 'ai' ? 'Detected by AI — click to remove' : 'Manually added — click to remove'}
+            >
               {s.name} ×
             </button>
           ))}
@@ -171,6 +178,11 @@ function SkillsCard({ skills, onChanged }) {
           Add
         </button>
       </form>
+      {skills.some((s) => s.source === 'ai') && (
+        <p className="muted small">
+          Skills highlighted in blue were detected by AI resume analysis. Your manually added skills are never removed.
+        </p>
+      )}
     </div>
   )
 }
@@ -316,9 +328,15 @@ function CrudSection({ title, items, fields, emptyText, renderItem, empty, onAdd
 // ---------------------------------------------------------------------------
 function ResumeCard({ resume, onChanged }) {
   const [busy, setBusy] = useState(false)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analysis, setAnalysis] = useState(null)
   const [error, setError] = useState('')
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef(null)
+
+  useEffect(() => {
+    setAnalysis(resume?.analysis ?? null)
+  }, [resume?.id, resume?.analysis?.updated_at, resume?.analysis?.status])
 
   const handleFile = async (file) => {
     if (!file) return
@@ -330,6 +348,7 @@ function ResumeCard({ resume, onChanged }) {
     setError('')
     try {
       await uploadResume(file)
+      setAnalysis(null)
       onChanged?.()
     } catch (err) {
       setError(apiError(err, 'Upload failed'))
@@ -342,9 +361,25 @@ function ResumeCard({ resume, onChanged }) {
     if (!window.confirm('Delete your current resume?')) return
     try {
       await deleteResume(resume.id)
+      setAnalysis(null)
       onChanged?.()
     } catch (err) {
       setError(apiError(err, 'Delete failed'))
+    }
+  }
+
+  const handleAnalyze = async () => {
+    setAnalyzing(true)
+    setError('')
+    try {
+      const data = await analyzeResume(resume.id)
+      setAnalysis(data)
+      onChanged?.()
+    } catch (err) {
+      setError(apiError(err, 'Could not analyse your resume'))
+      onChanged?.()
+    } finally {
+      setAnalyzing(false)
     }
   }
 
@@ -381,35 +416,56 @@ function ResumeCard({ resume, onChanged }) {
   }
 
   return (
-    <div className="card">
-      <div className="section-head">
-        <h3>Resume</h3>
-        <div className="resume-actions">
-          <button className="btn btn-ghost btn-sm" onClick={() => downloadResume(resume.id, resume.original_name)}>
-            Download
-          </button>
-          <button className="btn btn-ghost btn-sm" onClick={() => inputRef.current?.click()} disabled={busy}>
-            Replace
-          </button>
-          <button className="btn btn-danger btn-sm" onClick={handleDelete}>Delete</button>
+    <>
+      <div className="card">
+        <div className="section-head">
+          <h3>Resume</h3>
+          <div className="resume-actions">
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={handleAnalyze}
+              disabled={analyzing}
+              title="Extract text and get AI feedback"
+            >
+              {analyzing ? 'Analyzing…' : analysis?.has_analysis ? 'Re-analyze resume' : 'Analyze resume'}
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={() => downloadResume(resume.id, resume.original_name)}>
+              Download
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={() => inputRef.current?.click()} disabled={busy}>
+              Replace
+            </button>
+            <button className="btn btn-danger btn-sm" onClick={handleDelete}>Delete</button>
+          </div>
         </div>
-      </div>
-      {error && <div className="alert error">{error}</div>}
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".pdf"
-        hidden
-        onChange={(e) => handleFile(e.target.files[0])}
-      />
-      <div className="resume-head">
-        <div>
-          <strong>{resume.original_name}</strong>
-          <span className={`badge ${resume.status}`}>{resume.status}</span>
+        {error && <div className="alert error">{error}</div>}
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".pdf"
+          hidden
+          onChange={(e) => handleFile(e.target.files[0])}
+        />
+        <div className="resume-head">
+          <div>
+            <strong>{resume.original_name}</strong>
+            <span className={`badge ${resume.status}`}>{resume.status}</span>
+          </div>
+          <p className="muted">{new Date(resume.uploaded_at).toLocaleString()}</p>
         </div>
-        <p className="muted">{new Date(resume.uploaded_at).toLocaleString()}</p>
+        {analyzing && (
+          <p className="muted small">
+            Reading your PDF and analysing it. This usually takes a few seconds.
+          </p>
+        )}
+        {!analysis && !analyzing && (
+          <p className="muted small">
+            Run AI analysis to get detected skills, strengths, skill gaps and improvement suggestions.
+          </p>
+        )}
       </div>
-    </div>
+      <ResumeAnalysisCard analysis={analysis} />
+    </>
   )
 }
 

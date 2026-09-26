@@ -19,6 +19,7 @@ export default function StudentHome() {
 
   const jobs = data?.jobs
   const recent = jobs?.recent || []
+  const resume = data?.resume
 
   return (
     <div className="page dashboard">
@@ -57,6 +58,38 @@ export default function StudentHome() {
             />
             <Stat label="Quizzes" value={data.quizzes.attempts} sub={data.quizzes.passed ? `${data.quizzes.passed} passed` : 'No attempts yet'} />
             <Stat label="Mock interviews" value={data.interviews.completed} sub={`${data.interviews.total} total sessions`} />
+          </div>
+
+          <h2 className="section-title">Resume analysis</h2>
+          <div className="cards">
+            <Stat
+              label="Resume uploaded"
+              value={resume?.uploaded ? 'Yes' : 'No'}
+              sub={
+                resume?.uploaded
+                  ? <Link to="/student/profile">Manage resume →</Link>
+                  : 'Upload a PDF from your profile page'
+              }
+            />
+            <Stat
+              label="Analysis completed"
+              value={resume?.analysis_completed ? 'Yes' : 'No'}
+              sub={
+                resume?.analysis_completed
+                  ? `Analysed with ${resume.source === 'ai' ? 'AI' : 'the rule-based checker'}`
+                  : 'Run Analyze resume from your profile page'
+              }
+            />
+            <Stat
+              label="Detected skills"
+              value={resume?.detected_skills_count ?? 0}
+              sub="Skills found in your resume by AI"
+            />
+            <Stat
+              label="Skill gaps"
+              value={resume?.skill_gaps_count ?? 0}
+              sub={resume?.improvements_count ? `${resume.improvements_count} improvement tips` : 'Areas to work on'}
+            />
           </div>
 
           <h2 className="section-title">Application status</h2>
