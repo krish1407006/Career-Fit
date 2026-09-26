@@ -21,7 +21,7 @@ import {
  */
 export function useSpeechRecognition({ onFinal } = {}) {
   const supported = speechRecognitionSupported()
-  const blocker = useMemo(speechRecognitionBlocker, [])
+  const blocker = useMemo(() => speechRecognitionBlocker(), [])
   const recognitionRef = useRef(null)
   const finalRef = useRef('')
   const onFinalRef = useRef(onFinal)
