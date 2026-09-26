@@ -109,6 +109,9 @@ export const describeRecognitionError = (error) => {
 export const cleanTranscript = (text) =>
   String(text || '')
     .replace(/\s+/g, ' ')
+    .trim()
+    // Trim first: the recognizer often emits a leading space, which would
+    // otherwise stop the anchored filler pattern from matching.
     .replace(/^(uh+|um+|erm+|hmm+)[,\s]*/i, '')
     .trim()
 
