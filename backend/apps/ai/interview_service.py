@@ -227,8 +227,8 @@ def build_context(user, job=None, position=""):
     lookup is optional and defensive: a student with nothing on file still gets a
     usable context.
     """
-    from apps.jobs.models import Skill  # local import: avoids an app-loading cycle
     from apps.profiles.models import StudentProfile
+    from apps.resumes.models import Resume
 
     lines = []
 
