@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsStudent
-from apps.jobs.models import JobApplication
+from apps.jobs.models import Job, JobApplication
 
 from .analysis import AnalysisError, run_resume_analysis
 from .models import Resume, ResumeAnalysis

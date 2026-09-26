@@ -48,14 +48,15 @@ REAL_PDF_TEXT = (
 )
 
 
-def build_pdf(text_lines=REAL_PDF_TEXT):
-    """Assemble a minimal single-page PDF whose text stream is extractable."""
+def build_pdf(text=REAL_PDF_TEXT):
+    """Assemble a minimal single-page PDF, optionally with no text layer."""
+    stream = text if text is None else text + b"\n"
     objects = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
         b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
         b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
         b"/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
-        b"<< /Length " + str(len(text_lines)).encode() + b" >>\nstream\n" + text_lines + b"\nendstream",
+        b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream + b"endstream",
         b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
     ]
     out = bytearray(b"%PDF-1.4\n")
@@ -72,6 +73,7 @@ def build_pdf(text_lines=REAL_PDF_TEXT):
         f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_at}\n%%EOF\n"
     ).encode()
     return bytes(out)
+
 
 
 def make_student(username, **profile_kwargs):
@@ -91,7 +93,7 @@ def upload_resume(user, name="jane_cv.pdf", pdf_bytes=None):
     )
 
 
-@override_settings(MEDIA_ROOT=TEMP_MEDIA)
+@override_settings(MEDIA_ROOT=TEMP_MEDIA, AI_PROVIDER="openai", AI_API_KEY="test-key", AI_REQUIRED=True)
 class ResumeAnalysisPermissionTests(APITestCase):
     """1/2/3. Ownership rules for analyze + read endpoints."""
 
@@ -185,7 +187,7 @@ class ResumeAnalysisPermissionTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
-@override_settings(MEDIA_ROOT=TEMP_MEDIA)
+@override_settings(MEDIA_ROOT=TEMP_MEDIA, AI_PROVIDER="openai", AI_API_KEY="test-key", AI_REQUIRED=True)
 class ResumeAnalysisPipelineTests(APITestCase):
     """4/5/6/8/9/10. Extraction, storage, validation and skill integration."""
 
@@ -237,34 +239,50 @@ class ResumeAnalysisPipelineTests(APITestCase):
             AI_PAYLOAD["summary"], ""))
 
     def test_empty_extracted_text_is_reported_clearly(self):
-        empty_resume = upload_resume(self.student, "empty.pdf", b"%PDF-1.4\n%%EOF\n")
+        # A valid PDF with no text layer, i.e. a scanned image resume.
+        empty_resume = upload_resume(self.student, "scanned.pdf", build_pdf(text=None))
         with self.mock_ai() as ai:
             response = self.client.post(f"/api/resumes/{empty_resume.id}/analyze/")
         self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
         self.assertIn("readable text", response.data["detail"])
+        self.assertEqual(response.data["code"], "empty_text")
         ai.assert_not_called()
         analysis = ResumeAnalysis.objects.get(resume=empty_resume)
         self.assertEqual(analysis.status, ResumeAnalysis.Status.FAILED)
         self.assertIn("readable text", analysis.error_message)
 
-    def test_scanned_pdf_without_text_does_not_crash(self):
+    def test_unparsable_pdf_is_reported_clearly(self):
         broken = upload_resume(self.student, "broken.pdf", b"not really a pdf at all")
-        with self.mock_ai():
+        with self.mock_ai() as ai:
             response = self.client.post(f"/api/resumes/{broken.id}/analyze/")
         self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
+        self.assertEqual(response.data["code"], "extraction_failed")
         self.assertNotIn("Traceback", str(response.data))
+        self.assertNotIn("PdfReadError", str(response.data))
         self.assertIn("could not read", response.data["detail"].lower())
+        ai.assert_not_called()
 
-    def test_ai_service_failure_is_handled_gracefully(self):
+    @override_settings(AI_REQUIRED=False)
+    def test_ai_service_failure_falls_back_to_offline_checker(self):
         with mock.patch.object(providers, "chat_json",
                                side_effect=ProviderUnavailable("AI provider unreachable (ConnectError)")):
-            with self.client.post(f"/api/resumes/{self.resume.id}/analyze/") as response:
-                # AI_REQUIRED is off in tests -> deterministic offline fallback
-                self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+            response = self.client.post(f"/api/resumes/{self.resume.id}/analyze/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         analysis = ResumeAnalysis.objects.get(resume=self.resume)
         self.assertEqual(analysis.source, "offline")
         self.assertIn("could not be reached", analysis.notice)
         self.assertTrue(analysis.detected_skills)
+
+    @override_settings(AI_REQUIRED=True)
+    def test_ai_service_failure_is_handled_gracefully_when_required(self):
+        with mock.patch.object(providers, "chat_json",
+                               side_effect=ProviderUnavailable("AI provider unreachable (ConnectError)")):
+            response = self.client.post(f"/api/resumes/{self.resume.id}/analyze/")
+        self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
+        self.assertNotIn("Traceback", response.data["detail"])
+        self.assertNotIn("ConnectError", response.data["detail"])
+        self.assertEqual(ResumeAnalysis.objects.get(resume=self.resume).status,
+                         ResumeAnalysis.Status.FAILED)
 
     @override_settings(AI_REQUIRED=True)
     def test_ai_required_failure_returns_clean_error(self):
@@ -273,40 +291,42 @@ class ResumeAnalysisPipelineTests(APITestCase):
             response = self.client.post(f"/api/resumes/{self.resume.id}/analyze/")
         self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
         self.assertNotIn("Traceback", response.data["detail"])
+        self.assertNotIn("test-key", response.data["detail"])
         analysis = ResumeAnalysis.objects.get(resume=self.resume)
         self.assertEqual(analysis.status, ResumeAnalysis.Status.FAILED)
 
-    @override_settings(AI_REQUIRED=True)
+    @override_settings(AI_PROVIDER="", AI_API_KEY="", AI_REQUIRED=True)
     def test_missing_ai_configuration_is_handled_gracefully(self):
-        with mock.patch.object(providers, "is_configured", return_value=False):
-            response = self.client.post(f"/api/resumes/{self.resume.id}/analyze/")
+        response = self.client.post(f"/api/resumes/{self.resume.id}/analyze/")
         self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
-        self.assertIn("AI_PROVIDER", response.data["detail"])
-        self.assertIn("AI_API_KEY", response.data["detail"])
+        self.assertIn("not configured", response.data["detail"].lower())
+        self.assertNotIn("Traceback", response.data["detail"])
         self.assertEqual(ResumeAnalysis.objects.get(resume=self.resume).status,
                          ResumeAnalysis.Status.FAILED)
 
+
     def test_malformed_ai_output_is_rejected_safely(self):
         with self.mock_ai(payload={"totally": "unrelated"}):
-            with self.client.post(f"/api/resumes/{self.resume.id}/analyze/") as response:
-                self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+            response = self.client.post(f"/api/resumes/{self.resume.id}/analyze/")
+        self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
         analysis = ResumeAnalysis.objects.get(resume=self.resume)
-        self.assertEqual(analysis.source, "offline")
-        self.assertIn("could not be reached", analysis.notice)
+        self.assertEqual(analysis.status, ResumeAnalysis.Status.FAILED)
+        self.assertEqual(analysis.detected_skills, [])
+        self.assertEqual(analysis.summary, "")
 
-    @override_settings(AI_REQUIRED=True)
     def test_malformed_ai_output_does_not_overwrite_previous_analysis(self):
         with self.mock_ai():
             self.client.post(f"/api/resumes/{self.resume.id}/analyze/")
         good = ResumeAnalysis.objects.get(resume=self.resume)
         good_id = good.id
         with self.mock_ai(payload=[1, 2, 3]):
-            with self.client.post(f"/api/resumes/{self.resume.id}/analyze/") as response:
-                self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY, response.data)
+            response = self.client.post(f"/api/resumes/{self.resume.id}/analyze/")
+        self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY, response.data)
         failed = ResumeAnalysis.objects.get(pk=good_id)
         self.assertEqual(failed.status, ResumeAnalysis.Status.FAILED)
         self.assertEqual(failed.detected_skills, AI_PAYLOAD["detected_skills"])
         self.assertEqual(failed.summary, AI_PAYLOAD["summary"])
+
 
     def test_existing_manual_skills_are_not_overwritten(self):
         profile = self.student.student_profile
@@ -361,7 +381,7 @@ class ResumeAnalysisPipelineTests(APITestCase):
         self.assertEqual(response.data["missing"], [])
 
 
-@override_settings(MEDIA_ROOT=TEMP_MEDIA)
+@override_settings(MEDIA_ROOT=TEMP_MEDIA, AI_PROVIDER="openai", AI_API_KEY="test-key", AI_REQUIRED=True)
 class JobRelevanceTests(APITestCase):
     """6. Job relevance reuses the existing matching service."""
 
@@ -421,7 +441,7 @@ class JobRelevanceTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
-@override_settings(MEDIA_ROOT=TEMP_MEDIA)
+@override_settings(MEDIA_ROOT=TEMP_MEDIA, AI_PROVIDER="openai", AI_API_KEY="test-key", AI_REQUIRED=True)
 class UploadCompatibilityTests(APITestCase):
     """The pre-existing upload flow keeps working unchanged."""
 
@@ -472,7 +492,7 @@ class UploadCompatibilityTests(APITestCase):
         self.assertTrue(response.data[0]["analysis"]["has_analysis"])
 
 
-@override_settings(MEDIA_ROOT=TEMP_MEDIA)
+@override_settings(MEDIA_ROOT=TEMP_MEDIA, AI_PROVIDER="openai", AI_API_KEY="test-key", AI_REQUIRED=True)
 class DashboardAnalysisTests(APITestCase):
     """9. Lightweight resume-analysis block on the student dashboard."""
 
@@ -506,7 +526,7 @@ class DashboardAnalysisTests(APITestCase):
         self.assertEqual(resume_block["source"], "ai")
 
 
-@override_settings(MEDIA_ROOT=TEMP_MEDIA)
+@override_settings(MEDIA_ROOT=TEMP_MEDIA, AI_PROVIDER="openai", AI_API_KEY="test-key", AI_REQUIRED=True)
 class AnalysisParseErrorTests(APITestCase):
     """A provider that answers with non-JSON must not corrupt stored data."""
 

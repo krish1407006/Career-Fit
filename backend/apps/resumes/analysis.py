@@ -20,7 +20,7 @@ import logging
 
 from django.db import transaction
 
-from apps.ai.errors import AiError
+from apps.ai.errors import AiError, AiParseError, ProviderUnavailable
 from apps.ai.resume_analyzer import analyze_resume_text
 from apps.accounts.models import StudentProfile
 from apps.jobs.matching import match_job_to_student, normalise
@@ -172,13 +172,16 @@ def job_relevance_for(user, analysis, job=None):
 # ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
-@transaction.atomic
 def run_resume_analysis(resume, *, user=None, job=None, require_ai=False):
     """Analyse ``resume`` and persist a structured ``ResumeAnalysis``.
 
     ``user`` defaults to the resume owner. Raises :class:`AnalysisError` with a
     student-safe message for extraction problems, missing AI configuration or
     unusable AI output.
+
+    Failures are persisted (status ``failed``) *outside* the transaction that
+    stores a successful result, so a failure is never rolled back and the
+    student can see what went wrong.
     """
     owner = user or resume.user
     analysis, _ = ResumeAnalysis.objects.get_or_create(
@@ -201,39 +204,40 @@ def run_resume_analysis(resume, *, user=None, job=None, require_ai=False):
         message = _safe_ai_message(exc)
         _mark_failed(resume, analysis, message)
         raise AnalysisError(message, code="ai_unavailable") from None
-    except Exception as exc:  # noqa: BLE001 - unknown failure, no traceback to client
+    except Exception:  # noqa: BLE001 - unknown failure, no traceback to client
         logger.exception("Unexpected resume analysis failure for resume %s", resume.pk)
-        _mark_failed(resume, analysis, "Resume analysis failed unexpectedly. Please try again.")
-        raise AnalysisError("Resume analysis failed unexpectedly. Please try again.",
-                            code="analysis_failed") from None
+        message = "Resume analysis failed unexpectedly. Please try again."
+        _mark_failed(resume, analysis, message)
+        raise AnalysisError(message, code="analysis_failed") from None
 
-    detected = result["detected_skills"]
-    linked = sync_detected_skills(owner, detected)
+    with transaction.atomic():
+        detected = result["detected_skills"]
+        linked = sync_detected_skills(owner, detected)
 
-    analysis.status = ResumeAnalysis.Status.COMPLETED
-    analysis.extracted_text = text[:20000]
-    analysis.detected_skills = detected
-    analysis.skills = [s.name for s in linked] or detected
-    analysis.summary = result["summary"]
-    analysis.strengths = result["strengths"]
-    analysis.skill_gaps = result["skill_gaps"]
-    analysis.improvements = result["improvements"]
-    analysis.recommended_roles = result["recommended_roles"]
-    analysis.education = result["education"]
-    analysis.experience = result["experience"]
-    analysis.suggestions = result["improvements"]
-    analysis.score = result["score"]
-    analysis.source = result["source"]
-    analysis.provider = result.get("provider", "")
-    analysis.notice = result.get("notice", "")
-    analysis.error_message = ""
-    analysis.raw = result.get("raw", {}) if isinstance(result.get("raw"), dict) else {}
-    analysis.job_relevance = job_relevance_for(owner, analysis, job)
-    analysis.save()
+        analysis.status = ResumeAnalysis.Status.COMPLETED
+        analysis.extracted_text = text[:20000]
+        analysis.detected_skills = detected
+        analysis.skills = [s.name for s in linked] or detected
+        analysis.summary = result["summary"]
+        analysis.strengths = result["strengths"]
+        analysis.skill_gaps = result["skill_gaps"]
+        analysis.improvements = result["improvements"]
+        analysis.recommended_roles = result["recommended_roles"]
+        analysis.education = result["education"]
+        analysis.experience = result["experience"]
+        analysis.suggestions = result["improvements"]
+        analysis.score = result["score"]
+        analysis.source = result["source"]
+        analysis.provider = result.get("provider", "")
+        analysis.notice = result.get("notice", "")
+        analysis.error_message = ""
+        analysis.raw = result.get("raw", {}) if isinstance(result.get("raw"), dict) else {}
+        analysis.job_relevance = job_relevance_for(owner, analysis, job)
+        analysis.save()
 
-    resume.status = Resume.Status.ANALYZED
-    resume.error_message = ""
-    resume.save(update_fields=["status", "error_message", "updated_at"])
+        resume.status = Resume.Status.ANALYZED
+        resume.error_message = ""
+        resume.save(update_fields=["status", "error_message", "updated_at"])
 
     return analysis
 
@@ -248,12 +252,21 @@ def _mark_failed(resume, analysis, message):
 
 
 def _safe_ai_message(exc):
-    """Map a typed AI error to a student-facing message.
+    """Map a typed AI error to a fixed, student-facing message.
 
-    Only the exception's own safe text is used; keys, URLs and stack traces are
-    never surfaced.
+    Provider text is never echoed back verbatim, so API keys, endpoint URLs,
+    HTTP details and internal exception class names cannot leak to a client.
+    The original error is recorded server-side by the caller instead.
     """
-    text = " ".join(str(exc).split())
-    if not text:
-        return "The AI service is unavailable right now. Please try again later."
-    return text
+    if isinstance(exc, ProviderUnavailable) and "not configured" in str(exc).lower():
+        return (
+            "AI resume analysis is not configured on the server. "
+            "Please try again later or contact your administrator."
+        )
+    if isinstance(exc, AiParseError):
+        return (
+            "The AI service returned a response we could not read. "
+            "Please try again in a few minutes."
+        )
+    return "The AI service is unavailable right now. Please try again in a few minutes."
+
