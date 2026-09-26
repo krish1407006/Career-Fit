@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { clearTokens, getTokens } from '../api/client'
+import { clearTokens, getTokens, onTokensCleared } from '../api/client'
 import {
   fetchMe,
   login as apiLogin,
@@ -28,6 +28,18 @@ export function AuthProvider({ children }) {
       .catch(() => clearTokens())
       .finally(() => setLoading(false))
   }, [])
+
+  // Signing out in another tab clears the shared token storage; drop the
+  // in-memory session instead of leaving a stale, unusable user object.
+  useEffect(
+    () =>
+      onTokensCleared(() => {
+        setUser(null)
+        setProfile(null)
+        setLoading(false)
+      }),
+    [],
+  )
 
   const login = async (credentials) => {
     const u = await apiLogin(credentials)
