@@ -8,7 +8,13 @@ import {
   fetchMyInterviews,
   startInterview,
 } from '../../api/interviews'
-import { speechRecognitionSupported, speechSynthesisSupported, UNSUPPORTED_MESSAGE } from '../../lib/speech'
+import {
+  speechRecognitionBlocker,
+  speechRecognitionSupported,
+  speechSynthesisHasVoices,
+  speechSynthesisSupported,
+  UNSUPPORTED_MESSAGE,
+} from '../../lib/speech'
 import InterviewReport from '../../components/interviews/InterviewReport'
 import VoiceInterviewPanel from '../../components/interviews/VoiceInterviewPanel'
 
@@ -124,7 +130,23 @@ export default function Interview() {
     loadHistory()
   }
 
+  // Lets a student drop a stale in-progress interview (for example one left in
+  // text mode) without having to finish it first, so a new voice interview can
+  // actually be started.
+  const onDiscardActive = async () => {
+    if (!active) return
+    setError('')
+    try {
+      await cancelInterview(active.id)
+      setActive(null)
+      loadHistory()
+    } catch (e) {
+      setError(apiError(e, 'Could not discard that interview'))
+    }
+  }
+
   const voiceOk = speechRecognitionSupported()
+  const voiceBlocker = speechRecognitionBlocker()
 
   // ---------------- Live interview ----------------
   if (session) {
@@ -175,12 +197,23 @@ export default function Interview() {
                 {active.mode === 'voice' ? 'voice mode' : 'text mode'}
               </p>
             </div>
-            <button className="btn btn-primary" onClick={onResume} disabled={starting}>
-              {starting ? 'Resuming…' : 'Resume interview'}
-            </button>
+            <div className="voice-controls">
+              <button className="btn btn-primary" onClick={onResume} disabled={starting}>
+                {starting ? 'Resuming…' : 'Resume interview'}
+              </button>
+              <button className="btn btn-danger" onClick={onDiscardActive} disabled={starting}>
+                Discard it
+              </button>
+            </div>
           </div>
           {active.current_question && (
             <p className="muted small">Next question: “{active.current_question.content}”</p>
+          )}
+          {active.mode !== mode && (
+            <p className="muted small">
+              This one is in {active.mode === 'voice' ? 'voice' : 'text'} mode. Discard it to
+              start a new {mode === 'voice' ? 'voice' : 'text'} interview.
+            </p>
           )}
         </div>
       )}
@@ -227,10 +260,16 @@ export default function Interview() {
           </select>
         </label>
 
-        {!voiceOk && <div className="alert warn">{UNSUPPORTED_MESSAGE}</div>}
+        {!voiceOk && <div className="alert warn">{voiceBlocker || UNSUPPORTED_MESSAGE}</div>}
         {mode === 'voice' && !speechSynthesisSupported() && (
           <div className="alert warn">
             This browser cannot read questions aloud, so they will appear as text only.
+          </div>
+        )}
+        {mode === 'voice' && voiceOk && !speechSynthesisHasVoices() && (
+          <div className="alert warn">
+            No system voice is installed yet, so the first question may only appear as text.
+            Press “Repeat question” once a voice finishes loading.
           </div>
         )}
 
