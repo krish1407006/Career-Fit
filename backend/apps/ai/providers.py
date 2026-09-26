@@ -41,6 +41,13 @@ def _post(url, **kwargs):
 
 
 class _Client:
+    """Reads provider configuration from settings on every instantiation.
+
+    Configuration is resolved lazily (per call) rather than at import time so a
+    changed environment or an overridden setting is always honoured, and so the
+    key never lives longer than a single request.
+    """
+
     def __init__(self):
         self.provider = (settings.AI_PROVIDER or "").lower()
         self.key = settings.AI_API_KEY
@@ -55,6 +62,7 @@ class _Client:
         if self.provider == "gemini":
             return self._gemini_chat(messages, json_mode=json_mode, temperature=temperature, timeout=timeout)
         raise ProviderUnavailable(f"Unsupported AI_PROVIDER: {self.provider}")
+
 
     # ------------------------------------------------------------------
     def _openai_chat(self, messages, *, json_mode, temperature, timeout):
@@ -96,16 +104,18 @@ class _Client:
         return text
 
 
-_client = _Client()
+def _client():
+    """Build a client from the current settings (never cached)."""
+    return _Client()
 
 
 def chat(messages, **kwargs):
-    return _client.chat(messages, **kwargs)
+    return _client().chat(messages, **kwargs)
 
 
 def chat_json(messages, *, temperature=0.4, timeout=60.0):
     """Run a chat completion and parse the response as JSON."""
-    raw = _client.chat(messages, json_mode=True, temperature=temperature, timeout=timeout)
+    raw = _client().chat(messages, json_mode=True, temperature=temperature, timeout=timeout)
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
@@ -120,8 +130,9 @@ def chat_json(messages, *, temperature=0.4, timeout=60.0):
 
 
 def is_configured():
-    return bool(_client.provider and _client.key)
+    client = _client()
+    return bool(client.provider and client.key)
 
 
 def provider_name():
-    return _client.provider or "offline"
+    return _client().provider or "offline"

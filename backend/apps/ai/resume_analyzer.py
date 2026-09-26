@@ -99,8 +99,9 @@ def _clean_text(value, limit=MAX_TEXT_LENGTH):
 def _string_list(value, *, limit=MAX_LIST_ITEMS, item_limit=MAX_TEXT_LENGTH):
     """Coerce arbitrary AI output into a clean list of short strings.
 
-    Accepts lists of strings or of dicts (using a sensible key), and drops
-    anything unusable instead of trusting it.
+    Accepts a list of strings or of dicts (using a sensible key) and drops
+    anything unusable - numbers, nested structures, empty strings - instead of
+    trusting it.
     """
     if value is None:
         return []
@@ -113,11 +114,13 @@ def _string_list(value, *, limit=MAX_LIST_ITEMS, item_limit=MAX_TEXT_LENGTH):
     for item in value:
         if isinstance(item, dict):
             for key in ("name", "skill", "title", "role", "item", "text", "value"):
-                if item.get(key):
+                if isinstance(item.get(key), str) and item.get(key).strip():
                     item = item[key]
                     break
             else:
                 continue
+        if not isinstance(item, str):
+            continue
         text = _clean_text(item, limit=item_limit)
         if not text:
             continue
@@ -129,6 +132,7 @@ def _string_list(value, *, limit=MAX_LIST_ITEMS, item_limit=MAX_TEXT_LENGTH):
         if len(out) >= limit:
             break
     return out
+
 
 
 def _clean_score(value):
@@ -173,7 +177,7 @@ def validate_analysis(payload, *, provider="ai"):
     if not substantive:
         raise AiParseError("AI response contained no usable resume feedback.")
 
-    normalised["source"] = "ai" if provider == "ai" else "offline"
+    normalised["source"] = "offline" if provider == "offline" else "ai"
     normalised["provider"] = provider
     normalised["notice"] = ""
     normalised["raw"] = payload
