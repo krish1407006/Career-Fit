@@ -500,3 +500,27 @@ input:disabled { background: var(--bg); color: var(--muted); }
 }
 .report-list { margin: 4px 0 0; padding-left: 18px; display: grid; gap: 4px; }
 .report-q { margin-top: 12px; text-align: left; }
+
+/* Live microphone level meter */
+.level-meter { display: grid; gap: 5px; }
+.level-meter-track {
+  height: 12px;
+  border-radius: 999px;
+  background: #e6eaf4;
+  border: 1px solid #dde3f0;
+  overflow: hidden;
+}
+.level-meter-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  /* The ramp spans the fill itself, so the leading edge walks green -> amber
+     -> red as the level rises. */
+  background: linear-gradient(90deg, #34a853 0%, #f0a020 62%, #e2483c 100%);
+  transition: width 50ms linear;
+}
+.level-meter-fill.is-speaking { box-shadow: 0 0 0 2px rgba(52, 168, 83, 0.18); }
+.voice-live { color: var(--ok); font-weight: 700; font-size: 14px; }
+@media (prefers-reduced-motion: reduce) {
+  .level-meter-fill { transition: none; }
+}

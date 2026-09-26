@@ -3,6 +3,7 @@ import {
   cleanTranscript,
   describeRecognitionError,
   getSpeechRecognition,
+  mergeSpokenTranscript,
   speechRecognitionBlocker,
   speechRecognitionSupported,
 } from '../lib/speech'
@@ -24,6 +25,10 @@ export function useSpeechRecognition({ onFinal } = {}) {
   const blocker = useMemo(() => speechRecognitionBlocker(), [])
   const recognitionRef = useRef(null)
   const finalRef = useRef('')
+  // Words heard but not yet flagged final. Kept so an auto-ended session does
+  // not discard a clearly spoken answer.
+  const interimRef = useRef('')
+  const lastErrorCodeRef = useRef('')
   const onFinalRef = useRef(onFinal)
   // `onend` fires after `onerror`, and it must not overwrite the real reason the
   // microphone failed, so the message is tracked in a ref rather than read from
@@ -68,6 +73,8 @@ export function useSpeechRecognition({ onFinal } = {}) {
 
   const reset = useCallback(() => {
     finalRef.current = ''
+    interimRef.current = ''
+    lastErrorCodeRef.current = ''
     setTranscript('')
     setInterim('')
     setErrorBoth('')
@@ -105,6 +112,7 @@ export function useSpeechRecognition({ onFinal } = {}) {
     recognition.maxAlternatives = 1
 
     finalRef.current = ''
+    interimRef.current = ''
     setTranscript('')
     setInterim('')
     setErrorBoth('')
@@ -121,17 +129,23 @@ export function useSpeechRecognition({ onFinal } = {}) {
           live += alternative.transcript
         }
       }
+      interimRef.current = live
       setInterim(cleanTranscript(live))
-      setTranscript(cleanTranscript(finalRef.current))
+      setTranscript(cleanTranscript(`${finalRef.current} ${live}`.trim()))
     }
 
     recognition.onerror = (event) => {
+      lastErrorCodeRef.current = event?.error || ''
       const message = describeRecognitionError(event)
       if (message) setErrorBoth(message)
     }
 
     recognition.onend = () => {
-      const finalText = cleanTranscript(finalRef.current)
+      // Promote whatever was heard. Chrome ends a continuous session on its own
+      // after a silence timeout, and results that were never flagged final must
+      // not be thrown away, otherwise a clearly spoken answer reports as
+      // "nothing recognised".
+      const finalText = mergeSpokenTranscript(finalRef.current, interimRef.current)
       recognitionRef.current = null
       listeningRef.current = false
       setListening(false)
@@ -140,7 +154,11 @@ export function useSpeechRecognition({ onFinal } = {}) {
         setTranscript(finalText)
         onFinalRef.current?.(finalText)
       } else if (!errorRef.current) {
-        setErrorBoth('Nothing was recognised. Try again, or type your answer instead.')
+        setErrorBoth(
+          lastErrorCodeRef.current
+            ? `Speech recognition stopped (${lastErrorCodeRef.current}). Type your answer instead.`
+            : 'Nothing was recognised. Check the microphone is unmuted and try again, or type your answer.',
+        )
       }
     }
 

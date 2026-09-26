@@ -2,12 +2,18 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  audioLevelSupported,
   cleanTranscript,
   describeRecognitionError,
   getSpeechRecognition,
   isUsableTranscript,
   makeClientToken,
+  mergeSpokenTranscript,
   pickVoice,
+  rmsToLevel,
+  SILENCE_LEVEL,
+  smoothLevel,
+  SPEAKING_LEVEL,
   speechRecognitionBlocker,
   speechRecognitionSupported,
   speechSynthesisHasVoices,
@@ -124,6 +130,95 @@ test('cleanTranscript collapses whitespace and strips leading fillers', () => {
   assert.equal(cleanTranscript('uh, I built a project'), 'I built a project')
   assert.equal(cleanTranscript(''), '')
   assert.equal(cleanTranscript(null), '')
+})
+
+test('mergeSpokenTranscript keeps words the browser never flagged final', () => {
+  // Regression: Chrome ends a continuous session on a silence timeout, so a
+  // fully spoken answer can still be sitting in the interim bucket when onend
+  // fires. Reading only the final bucket reported "nothing recognised".
+  assert.equal(mergeSpokenTranscript('', 'I built a Django project'), 'I built a Django project')
+  assert.equal(
+    mergeSpokenTranscript('I built a Django project', 'with JWT auth'),
+    'I built a Django project with JWT auth',
+  )
+})
+
+test('mergeSpokenTranscript collapses the seam between the two buckets', () => {
+  assert.equal(mergeSpokenTranscript('first part ', ' second part'), 'first part second part')
+  assert.equal(mergeSpokenTranscript('  ', '  '), '')
+  assert.equal(mergeSpokenTranscript('', ''), '')
+  assert.equal(mergeSpokenTranscript(null, undefined), '')
+})
+
+test('mergeSpokenTranscript output is always submittable when long enough', () => {
+  const spoken = 'I would use a token refresh rotation with blacklisting'
+  assert.equal(isUsableTranscript(mergeSpokenTranscript('', spoken), 3), true)
+})
+
+test('rmsToLevel reports silence for a centred buffer', () => {
+  const silence = new Uint8Array(512).fill(128)
+  assert.equal(rmsToLevel(silence), 0)
+  assert.equal(rmsToLevel(new Uint8Array(0)), 0)
+  assert.equal(rmsToLevel(null), 0)
+})
+
+test('rmsToLevel rises with loudness and stays within 0..1', () => {
+  const at = (amplitude) => {
+    const buffer = new Uint8Array(1024)
+    for (let i = 0; i < buffer.length; i += 1) {
+      buffer[i] = Math.max(0, Math.min(255, 128 + amplitude * Math.sin(i / 8)))
+    }
+    return rmsToLevel(buffer)
+  }
+  const quiet = at(6)
+  const medium = at(24)
+  const loud = at(90)
+  assert.ok(quiet < medium, `quiet ${quiet} should be below medium ${medium}`)
+  assert.ok(medium < loud, `medium ${medium} should be below loud ${loud}`)
+  assert.ok(loud <= 1, 'level must never exceed 1')
+  assert.ok(loud > SPEAKING_LEVEL, 'a loud voice must read as speaking')
+  // A quiet but real voice has to clear the noise floor, or the meter stays dead
+  // for soft speakers.
+  assert.ok(quiet > SILENCE_LEVEL, `quiet speech ${quiet} must clear the noise floor`)
+  assert.ok(quiet < SPEAKING_LEVEL, `quiet speech ${quiet} should not trip the speaking flag`)
+})
+
+test('rmsToLevel clips instead of overflowing on a full scale buffer', () => {
+  const buffer = new Uint8Array(256)
+  for (let i = 0; i < buffer.length; i += 1) buffer[i] = i % 2 === 0 ? 255 : 0
+  assert.equal(rmsToLevel(buffer), 1)
+})
+
+test('smoothLevel rises quickly and falls slowly', () => {
+  // Attack: a level jump should be mostly visible on the very next frame.
+  const jumped = smoothLevel(0, 0.8)
+  assert.ok(jumped > 0.4, `attack too slow: ${jumped}`)
+  // Release: the bar should not flicker away between words.
+  const released = smoothLevel(0.8, 0)
+  assert.ok(released > 0.6 && released < 0.8, `release too fast: ${released}`)
+  assert.equal(smoothLevel(0.5, 0.5), 0.5)
+  assert.ok(Math.abs(smoothLevel(0, 0) - 0) < 1e-9)
+})
+
+test('smoothLevel converges on a steady level', () => {
+  let level = 0
+  for (let i = 0; i < 60; i += 1) level = smoothLevel(level, 0.5)
+  assert.ok(Math.abs(level - 0.5) < 0.01, `did not converge: ${level}`)
+})
+
+test('audioLevelSupported requires both getUserMedia and an AudioContext', () => {
+  withWindow({ AudioContext: function () {} }, () => {
+    assert.equal(audioLevelSupported(), true)
+  })
+  withWindow({}, () => {
+    assert.equal(audioLevelSupported(), false, 'no AudioContext means no meter')
+  })
+  withWindow(
+    { AudioContext: function () {}, navigator: { mediaDevices: {} } },
+    () => {
+      assert.equal(audioLevelSupported(), false, 'no getUserMedia means no meter')
+    },
+  )
 })
 
 test('isUsableTranscript enforces a minimum word count', () => {

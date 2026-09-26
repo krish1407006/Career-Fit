@@ -115,9 +115,62 @@ export const cleanTranscript = (text) =>
     .replace(/^(uh+|um+|erm+|hmm+)[,\s]*/i, '')
     .trim()
 
+/**
+ * Assemble the transcript to keep once a recognition session ends.
+ *
+ * The browser ends a continuous session on its own after a silence timeout, and
+ * words it heard may never be flagged `isFinal`. Reading only the final bucket
+ * would silently discard a clearly spoken answer and report "nothing
+ * recognised", so the pending interim words are promoted into the result.
+ */
+export const mergeSpokenTranscript = (finalText, interimText) =>
+  cleanTranscript(`${finalText || ''} ${interimText || ''}`.trim())
+
 /** A transcript long enough to be worth evaluating. */
 export const isUsableTranscript = (text, minWords = 3) =>
   cleanTranscript(text).split(' ').filter(Boolean).length >= minWords
+
+// ---------------------------------------------------------------------------
+// Microphone level meter
+// ---------------------------------------------------------------------------
+
+/** Below this level the room is considered silent. */
+export const SILENCE_LEVEL = 0.06
+/** At or above this level the student is considered to be speaking. */
+export const SPEAKING_LEVEL = 0.16
+
+/**
+ * Root-mean-square amplitude of one analyser frame, mapped to 0..1.
+ *
+ * `getByteTimeDomainData` is centred on 128, so it is re-centred and scaled
+ * first. The gain compensates for normal speech sitting well below full scale;
+ * without it the meter barely moves for a quiet voice.
+ */
+export const rmsToLevel = (samples, gain = 3.4) => {
+  if (!samples || samples.length === 0) return 0
+  let sum = 0
+  for (let i = 0; i < samples.length; i += 1) {
+    const centred = (samples[i] - 128) / 128
+    sum += centred * centred
+  }
+  const rms = Math.sqrt(sum / samples.length)
+  const level = rms * gain
+  return level > 1 ? 1 : level
+}
+
+/**
+ * Ballistics for the meter: rise fast so speech onset is obvious, fall slowly so
+ * the bar does not flicker between words.
+ */
+export const smoothLevel = (previous, next, rise = 0.55, fall = 0.12) =>
+  previous + (next - previous) * (next > previous ? rise : fall)
+
+/** True when the browser can expose a live microphone level. */
+export const audioLevelSupported = () =>
+  typeof window !== 'undefined' &&
+  typeof navigator !== 'undefined' &&
+  Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) &&
+  Boolean(window.AudioContext || window.webkitAudioContext)
 
 /**
  * Stable idempotency key for one answer, so a double click or a retried request

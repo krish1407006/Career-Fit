@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { apiError } from '../../api/client'
+import { useAudioLevel } from '../../hooks/useAudioLevel'
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
 import { isUsableTranscript, makeClientToken, TTS_UNSUPPORTED_MESSAGE, UNSUPPORTED_MESSAGE } from '../../lib/speech'
@@ -43,6 +44,7 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
   const [spokeCurrent, setSpokeCurrent] = useState(false)
   const tokenRef = useRef('')
   const spokenIdsRef = useRef(new Set())
+  const meterBarRef = useRef(null)
 
   const tts = useSpeechSynthesis()
   const stt = useSpeechRecognition({
@@ -52,7 +54,10 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
     },
   })
   const { cancel: cancelTts } = tts
-  const { start: startListening, stop: stopListening, reset: resetListening } = stt
+  const { start: startListening, stop: stopListening, reset: resetListening, interim } = stt
+  // Runs alongside recognition purely to drive the level bar.
+  const meter = useAudioLevel({ barRef: meterBarRef })
+  const { start: startMeter, stop: stopMeter } = meter
 
   const voiceAvailable = stt.supported
   const ttsAvailable = tts.supported
@@ -93,6 +98,8 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
     setTyped('')
     setSpokeCurrent(false)
     resetListening()
+    // Never leave the meter running into the next question.
+    stopMeter()
     tokenRef.current = makeClientToken()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question])
@@ -108,12 +115,15 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
     setError('')
     if (stt.listening) {
       stopListening()
+      stopMeter()
       setStage('awaiting_answer')
       return
     }
     setStage('listening')
+    // The meter is best effort: a failure here must never block the answer.
+    startMeter()
     startListening()
-  }, [stt.listening, startListening, stopListening])
+  }, [stt.listening, startListening, stopListening, startMeter, stopMeter])
 
   const onSubmit = useCallback(async () => {
     if (!canSubmit) return
@@ -126,6 +136,7 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
     setError('')
     setStage('processing')
     stopListening()
+    stopMeter()
     try {
       const res = await onAnswered(text, tokenRef.current)
       if (res?.completed) {
@@ -145,7 +156,7 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
     } finally {
       setSubmitting(false)
     }
-  }, [answer, canSubmit, onAnswered, onCompleted, tts, typed, stopListening])
+  }, [answer, canSubmit, onAnswered, onCompleted, tts, typed, stopListening, stopMeter])
 
   const onRepeat = useCallback(() => {
     if (!question) return
@@ -223,8 +234,33 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
             >
               {stt.listening ? '⏹ Stop recording' : '🎤 Start speaking'}
             </button>
-            {stt.listening && <span className="listening-pulse">Listening…</span>}
+            {stt.listening && (
+              <span className={meter.speaking ? 'voice-live' : 'muted small'}>
+                {meter.speaking ? '🔊 Voice detected' : 'Listening…'}
+              </span>
+            )}
           </div>
+
+          {/* Live input level. The bar is driven straight from the analyser so it
+              stays smooth instead of re-rendering the interview 60 times a second. */}
+          {meter.supported && (
+            <div className="level-meter">
+              <div className="level-meter-track">
+                <div
+                  className={`level-meter-fill${meter.speaking ? ' is-speaking' : ''}`}
+                  ref={meterBarRef}
+                />
+              </div>
+              <span className="muted small">
+                {stt.listening
+                  ? meter.active
+                    ? 'Input level — speak to make it move'
+                    : 'Starting microphone…'
+                  : 'Input level idle'}
+              </span>
+            </div>
+          )}
+          {meter.error && <div className="alert warn">{meter.error}</div>}
 
           {stt.error && <div className="alert warn">{stt.error}</div>}
 
@@ -235,11 +271,15 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
               value={transcript}
               onChange={(e) => setTranscript(e.target.value)}
               placeholder={voiceAvailable
-                ? 'Your speech appears here. Review it before submitting.'
+                ? 'Your speech appears here while you talk. Review it before submitting.'
                 : 'Voice input is unavailable here. Type your answer below.'}
             />
           </label>
-          {stt.interim && <p className="muted small">Hearing: “{stt.interim}”</p>}
+          {stt.listening && (
+            <p className="muted small">
+              {interim ? `Hearing: “${interim}”` : 'Listening… speak now, then press Stop recording.'}
+            </p>
+          )}
 
           <label>
             Or type / edit your answer
