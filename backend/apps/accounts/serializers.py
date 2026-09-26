@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import RecruiterProfile, StudentProfile, User
+from .models import RecruiterProfile, StudentProfile, SuperAdminEmail, User
 
 
 class LoginSerializer(TokenObtainPairSerializer):
@@ -21,6 +21,70 @@ class LoginSerializer(TokenObtainPairSerializer):
         **TokenObtainPairSerializer.default_error_messages,
         "no_active_account": "Incorrect username or password. Please try again.",
     }
+
+
+class SuperAdminEmailSerializer(serializers.ModelSerializer):
+    added_by = serializers.SerializerMethodField()
+    is_own_address = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SuperAdminEmail
+        fields = ["id", "email", "note", "is_active", "added_by", "is_own_address",
+                  "created_at"]
+        read_only_fields = ["id", "added_by", "is_own_address", "created_at"]
+
+    def get_added_by(self, obj):
+        return obj.added_by.username if obj.added_by else None
+
+    def get_is_own_address(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user or not request.user.is_authenticated:
+            return False
+        current = (request.user.email or "").strip().lower()
+        return bool(current) and current == obj.email
+
+    def validate_email(self, value):
+        value = value.strip().lower()
+        if not value:
+            raise serializers.ValidationError("Enter an email address.")
+        qs = SuperAdminEmail.objects.filter(email=value)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError("That email is already on the list.")
+        return value
+
+    def validate(self, attrs):
+        # Removing the final entry would leave nobody able to manage the list.
+        if self.instance and not attrs.get("is_active", True):
+            remaining = SuperAdminEmail.objects.filter(is_active=True).exclude(
+                pk=self.instance.pk
+            )
+            if not remaining.exists():
+                raise serializers.ValidationError(
+                    {"is_active": "This is the last active super email. Add another "
+                                   "one before removing this."}
+                )
+        return attrs
+
+
+class MyAccountEmailSerializer(serializers.ModelSerializer):
+    """Lets an admin correct the address the super email list is matched on."""
+
+    class Meta:
+        model = User
+        fields = ["email"]
+
+    def validate_email(self, value):
+        value = (value or "").strip().lower()
+        if not value:
+            raise serializers.ValidationError("Email cannot be empty.")
+        if value != (self.instance.email or "").strip().lower():
+            if User.objects.filter(email__iexact=value).exclude(
+                pk=self.instance.pk
+            ).exists():
+                raise serializers.ValidationError("That email is already in use.")
+        return value
 
 
 class StudentProfileSerializer(serializers.ModelSerializer):

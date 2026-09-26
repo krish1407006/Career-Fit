@@ -14,6 +14,9 @@ export default function AdminLayout() {
         <NavLink to="/admin/accounts" className={link}>
           Accounts
         </NavLink>
+        <NavLink to="/admin/super-emails" className={link}>
+          Super emails
+        </NavLink>
       </nav>
       <Outlet />
     </div>

@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.accounts.models import RecruiterProfile, StudentProfile
+from apps.accounts.models import RecruiterProfile, StudentProfile, SuperAdminEmail
 
 User = get_user_model()
 
@@ -551,3 +551,214 @@ class AdminAccountManagementTests(AuthAPITestCase):
         self.assertEqual(InterviewSession.objects.filter(student=self.student).count(), 1)
         self.client.delete(f"/api/auth/admin/users/{self.student.id}/")
         self.assertEqual(InterviewSession.objects.filter(student=self.student).count(), 0)
+
+
+class AdminResetPasswordTests(AuthAPITestCase):
+    """A locked-out account has to be recoverable from the accounts screen."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username="boss_admin", password="Str0ngPass!23", role=User.Role.ADMIN,
+        )
+        self.student = self.make_student()
+        tokens = self.login_tokens("boss_admin", "Str0ngPass!23")
+        self.authenticate(tokens["access"])
+
+    def test_admin_can_set_a_new_password_and_the_user_can_log_in(self):
+        response = self.client.post(
+            f"/api/auth/admin/users/{self.student.id}/reset-password/",
+            {"password": "BrandNewPass!9"}, format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.client.credentials()
+        self.assertEqual(
+            self.login(STUDENT_PAYLOAD["username"], "BrandNewPass!9").status_code,
+            status.HTTP_200_OK,
+        )
+
+    def test_reset_reactivates_a_disabled_account(self):
+        self.student.is_active = False
+        self.student.save(update_fields=["is_active"])
+        self.client.post(
+            f"/api/auth/admin/users/{self.student.id}/reset-password/",
+            {"password": "BrandNewPass!9"}, format="json",
+        )
+        self.student.refresh_from_db()
+        self.assertTrue(self.student.is_active)
+
+    def test_short_password_is_rejected(self):
+        response = self.client.post(
+            f"/api/auth/admin/users/{self.student.id}/reset-password/",
+            {"password": "short"}, format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_student_cannot_reset_someone_elses_password(self):
+        tokens = self.login_tokens(STUDENT_PAYLOAD["username"], STUDENT_PAYLOAD["password"])
+        self.authenticate(tokens["access"])
+        response = self.client.post(
+            f"/api/auth/admin/users/{self.admin.id}/reset-password/",
+            {"password": "HijackedPass!1"}, format="json",
+        )
+        self.assertIn(
+            response.status_code, (status.HTTP_403_FORBIDDEN, status.HTTP_401_UNAUTHORIZED)
+        )
+        self.admin.refresh_from_db()
+        self.assertTrue(self.admin.check_password("Str0ngPass!23"))
+
+
+class SuperAdminEmailTests(AuthAPITestCase):
+    """The super email list is full admin access, so it needs real guardrails."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username="root_admin", email="root@example.com",
+            password="Str0ngPass!23", role=User.Role.ADMIN,
+        )
+        self.grantee = self.make_student()
+        self.grantee.email = "partner@example.com"
+        self.grantee.save(update_fields=["email"])
+        # The manager role requires a listed address, not just the admin role.
+        SuperAdminEmail.objects.create(
+            email="root@example.com", added_by=self.admin, note="owner",
+        )
+        tokens = self.login_tokens("root_admin", "Str0ngPass!23")
+        self.authenticate(tokens["access"])
+
+    def test_manager_can_list_add_and_remove_addresses(self):
+        response = self.client.get("/api/auth/admin/super-emails/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 1)
+
+        created = self.client.post(
+            "/api/auth/admin/super-emails/",
+            {"email": "Partner@Example.com", "note": "second pair of hands"},
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
+        # Must be normalised, or the lowercase match at login would miss it.
+        self.assertEqual(created.data["email"], "partner@example.com")
+        self.assertEqual(created.data["added_by"], "root_admin")
+
+        removed = self.client.delete(
+            f"/api/auth/admin/super-emails/{created.data['id']}/"
+        )
+        self.assertEqual(removed.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_listed_email_is_promoted_to_admin_on_login(self):
+        SuperAdminEmail.objects.create(email="partner@example.com", added_by=self.admin)
+        tokens = self.login(STUDENT_PAYLOAD["username"], STUDENT_PAYLOAD["password"])
+        self.assertEqual(tokens.status_code, status.HTTP_200_OK)
+        self.assertEqual(tokens.data["user"]["role"], User.Role.ADMIN)
+        self.grantee.refresh_from_db()
+        self.assertEqual(self.grantee.role, User.Role.ADMIN)
+        self.assertTrue(self.grantee.is_staff)
+
+    def test_listed_email_can_reach_admin_endpoints(self):
+        SuperAdminEmail.objects.create(email="partner@example.com", added_by=self.admin)
+        tokens = self.login_tokens(STUDENT_PAYLOAD["username"], STUDENT_PAYLOAD["password"])
+        self.authenticate(tokens["access"])
+        self.assertEqual(
+            self.client.get("/api/auth/admin/users/").status_code,
+            status.HTTP_200_OK,
+        )
+
+    def test_unlisted_email_gains_nothing(self):
+        tokens = self.login_tokens(STUDENT_PAYLOAD["username"], STUDENT_PAYLOAD["password"])
+        self.authenticate(tokens["access"])
+        self.assertEqual(
+            self.client.get("/api/auth/admin/users/").status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+    def test_deactivated_entry_stops_granting(self):
+        entry = SuperAdminEmail.objects.create(
+            email="partner@example.com", added_by=self.admin
+        )
+        # Sign in while active: that is what promotes the account to admin.
+        tokens = self.login_tokens(STUDENT_PAYLOAD["username"], STUDENT_PAYLOAD["password"])
+        self.grantee.refresh_from_db()
+        self.assertEqual(self.grantee.role, User.Role.ADMIN)
+
+        # Deactivating must revoke the admin role, not just block future logins.
+        self.client.patch(
+            f"/api/auth/admin/super-emails/{entry.id}/", {"is_active": False},
+            format="json",
+        )
+        self.grantee.refresh_from_db()
+        self.assertEqual(self.grantee.role, User.Role.STUDENT)
+        self.assertFalse(self.grantee.is_staff)
+
+        self.authenticate(tokens["access"])
+        self.assertEqual(
+            self.client.get("/api/auth/admin/users/").status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+    def test_removed_entry_also_revokes_admin_role(self):
+        entry = SuperAdminEmail.objects.create(
+            email="partner@example.com", added_by=self.admin
+        )
+        self.login_tokens(STUDENT_PAYLOAD["username"], STUDENT_PAYLOAD["password"])
+        self.grantee.refresh_from_db()
+        self.assertEqual(self.grantee.role, User.Role.ADMIN)
+
+        self.client.delete(f"/api/auth/admin/super-emails/{entry.id}/")
+        self.grantee.refresh_from_db()
+        self.assertEqual(self.grantee.role, User.Role.STUDENT)
+
+    def test_duplicate_email_is_rejected(self):
+        response = self.client.post(
+            "/api/auth/admin/super-emails/", {"email": "ROOT@example.com"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_last_active_entry_cannot_be_removed(self):
+        only = SuperAdminEmail.objects.get(email="root@example.com")
+        response = self.client.delete(f"/api/auth/admin/super-emails/{only.id}/")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(SuperAdminEmail.objects.filter(pk=only.pk).exists())
+
+    def test_plain_admin_cannot_manage_the_list(self):
+        plain = User.objects.create_user(
+            username="other_admin", email="other@example.com",
+            password="Str0ngPass!23", role=User.Role.ADMIN,
+        )
+        tokens = self.login_tokens("other_admin", "Str0ngPass!23")
+        self.authenticate(tokens["access"])
+        self.assertEqual(
+            self.client.get("/api/auth/admin/super-emails/").status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+        self.assertEqual(
+            self.client.post("/api/auth/admin/super-emails/",
+                             {"email": "sneaky@example.com"},
+                             format="json").status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+        self.assertFalse(SuperAdminEmail.objects.filter(email="sneaky@example.com").exists())
+
+    def test_admin_can_change_their_own_email(self):
+        response = self.client.patch(
+            "/api/auth/me/email/", {"email": "Owner@NewDomain.com"}, format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.admin.refresh_from_db()
+        self.assertEqual(self.admin.email, "owner@newdomain.com")
+
+    def test_changing_to_an_email_already_in_use_is_rejected(self):
+        self.grantee.email = "taken@example.com"
+        self.grantee.save(update_fields=["email"])
+        response = self.client.patch(
+            "/api/auth/me/email/", {"email": "taken@example.com"}, format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_new_address_still_needs_a_signed_in_account(self):
+        # Granting an email alone must not let an anonymous visitor in.
+        self.client.credentials()
+        self.assertEqual(
+            self.client.get("/api/auth/admin/users/").status_code,
+            status.HTTP_401_UNAUTHORIZED,
+        )

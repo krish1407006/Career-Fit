@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { bulkDeleteAdminUsers, fetchAdminUsers, setAdminUserActive } from '../../api/accounts'
+import { bulkDeleteAdminUsers, fetchAdminUsers, resetAdminUserPassword, setAdminUserActive } from '../../api/accounts'
 
 const ROLE_LABEL = { admin: 'Admin', recruiter: 'Recruiter', student: 'Student' }
 
@@ -125,6 +125,25 @@ export default function AdminAccounts() {
     } finally {
       setBusy(false)
     }
+  }
+
+  const onResetPassword = (account) => {
+    const next = window.prompt(
+      `New password for "${account.username}"\n\nAt least 8 characters.`,
+      '',
+    )
+    if (next === null) return
+    if (next.length < 8) {
+      setError('Password must be at least 8 characters.')
+      return
+    }
+    setBusy(true)
+    setError('')
+    setNotice('')
+    resetAdminUserPassword(account.id, next)
+      .then((result) => setNotice(result?.detail || `Password updated for ${account.username}.`))
+      .catch((e) => setError(e?.message || 'Could not reset that password'))
+      .finally(() => setBusy(false))
   }
 
   const onSignOut = async () => {
@@ -270,13 +289,22 @@ export default function AdminAccounts() {
                     {account.username === user?.username ? (
                       <span className="muted small">Current account</span>
                     ) : (
-                      <button
-                        className="btn btn-ghost"
-                        onClick={() => onToggleActive(account)}
-                        disabled={busy}
-                      >
-                        {account.is_active ? 'Disable' : 'Enable'}
-                      </button>
+                      <div className="voice-controls">
+                        <button
+                          className="btn btn-ghost"
+                          onClick={() => onResetPassword(account)}
+                          disabled={busy}
+                        >
+                          Set password
+                        </button>
+                        <button
+                          className="btn btn-ghost"
+                          onClick={() => onToggleActive(account)}
+                          disabled={busy}
+                        >
+                          {account.is_active ? 'Disable' : 'Enable'}
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>

@@ -26,4 +26,14 @@ export const setAdminUserActive = async (id, isActive) => {
   }
 }
 
+/** Set a new password for an account and let it sign in again. */
+export const resetAdminUserPassword = async (id, password) => {
+  try {
+    const res = await api.post(`/auth/admin/users/${id}/reset-password/`, { password })
+    return res.data
+  } catch (e) {
+    throw new Error(apiError(e, 'Could not reset that password'))
+  }
+}
+
 export { apiError }

@@ -14,6 +14,7 @@ import AdminLayout from './pages/admin/AdminLayout'
 import AdminArea from './pages/admin/AdminArea'
 import AdminQuizzes from './pages/admin/AdminQuizzes'
 import AdminAccounts from './pages/admin/AdminAccounts'
+import AdminSuperEmails from './pages/admin/AdminSuperEmails'
 import StudentLayout from './pages/student/StudentLayout'
 import StudentHome from './pages/student/StudentHome'
 import StudentProfile from './pages/student/StudentProfile'
@@ -94,6 +95,7 @@ function AppRoutes() {
         <Route index element={<AdminArea />} />
         <Route path="quizzes" element={<AdminQuizzes />} />
         <Route path="accounts" element={<AdminAccounts />} />
+        <Route path="super-emails" element={<AdminSuperEmails />} />
         </Route>
         <Route
           path="/student"

@@ -1,5 +1,6 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
@@ -9,16 +10,18 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import (
     AdminUserSerializer,
     LoginSerializer,
+    MyAccountEmailSerializer,
     RecruiterProfileDetailSerializer,
     RegisterSerializer,
     StudentProfileDetailSerializer,
+    SuperAdminEmailSerializer,
     UserAdminUpdateSerializer,
     UserSerializer,
 )
 
-from .permissions import IsAdminRole
+from .permissions import IsAdminRole, IsSuperAdminManager, super_email_grants_admin
 
-from .models import User
+from .models import SuperAdminEmail, User
 
 
 class TokenObtainPairWithRoleView(TokenObtainPairView):
@@ -34,6 +37,13 @@ class TokenObtainPairWithRoleView(TokenObtainPairView):
         if response.status_code == 200:
             try:
                 user = User.objects.get(username=request.data["username"])
+                # An address on the super email list is promoted on sign-in, so a
+                # granted person gets a real admin role and token, not just
+                # access to one screen.
+                if not user.is_admin_role and super_email_grants_admin(user):
+                    user.role = User.Role.ADMIN
+                    user.is_staff = True
+                    user.save(update_fields=["role", "is_staff"])
                 response.data["user"] = UserSerializer(user).data
             except (User.DoesNotExist, KeyError):
                 pass
@@ -150,6 +160,128 @@ class AdminUserListView(generics.ListAPIView):
     def get_queryset(self):
         return User.objects.select_related("student_profile", "recruiter_profile")\
             .all().order_by("-created_at")
+
+
+def revoke_super_email_access(email):
+    """Demote accounts that were promoted purely because of this address.
+
+    Without this, removing an address would leave the person who signed in while
+    it was active as a full admin forever, which defeats the point of removing
+    it. Superusers are never demoted.
+    """
+    if not email:
+        return 0
+    return User.objects.filter(
+        email__iexact=email, role=User.Role.ADMIN, is_superuser=False
+    ).update(role=User.Role.STUDENT, is_staff=False)
+
+
+class SuperAdminEmailListView(APIView):
+    """List and grant the super email addresses."""
+
+    permission_classes = [IsSuperAdminManager]
+
+    def get(self, request):
+        rows = SuperAdminEmail.objects.select_related("added_by").all()
+        return Response({"results": SuperAdminEmailSerializer(
+            rows, many=True, context={"request": request}
+        ).data})
+
+    def post(self, request):
+        serializer = SuperAdminEmailSerializer(data=request.data,
+                                                context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        entry = serializer.save(added_by=request.user)
+        return Response(SuperAdminEmailSerializer(
+            entry, context={"request": request}
+        ).data, status=status.HTTP_201_CREATED)
+
+
+class SuperAdminEmailDetailView(APIView):
+    """Activate, deactivate or delete one super email."""
+
+    permission_classes = [IsSuperAdminManager]
+
+    def patch(self, request, pk):
+        entry = get_object_or_404(SuperAdminEmail, pk=pk)
+        serializer = SuperAdminEmailSerializer(
+            entry, data=request.data, partial=True, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        was_active = entry.is_active
+        entry = serializer.save()
+        if was_active and not entry.is_active:
+            revoke_super_email_access(entry.email)
+        return Response(serializer.data)
+
+    def delete(self, request, pk):
+        entry = get_object_or_404(SuperAdminEmail, pk=pk)
+        if entry.is_active and not SuperAdminEmail.objects.filter(
+            is_active=True
+        ).exclude(pk=entry.pk).exists():
+            return Response(
+                {"detail": "This is the last active super email. Add another one "
+                           "before removing this."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        email = entry.email
+        entry.delete()
+        revoke_super_email_access(email)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class MyEmailView(APIView):
+    """Read or change the signed-in admin's own email address."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(MyAccountEmailSerializer(request.user).data)
+
+    def patch(self, request):
+        serializer = MyAccountEmailSerializer(request.user, data=request.data,
+                                              partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            {"email": serializer.data["email"],
+             "detail": "Email updated. Sign out and back in for it to take effect "
+                       "if it was not already a super email."}
+        )
+
+
+class AdminUserResetPasswordView(APIView):
+    """Admin sets a new password for an account.
+
+    Exists because a locked-out account otherwise has no way back in without a
+    shell, and the accounts screen is where an admin already is.
+    """
+
+    permission_classes = [IsAdminRole]
+
+    def post(self, request, pk):
+        user = get_object_or_404(User, pk=pk)
+        new_password = request.data.get("password") or ""
+        if len(new_password) < 8:
+            return Response(
+                {"detail": "Password must be at least 8 characters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user.set_password(new_password)
+        user.is_active = True
+        user.save(update_fields=["password", "is_active"])
+        # Force a fresh login so the old tokens stop working.
+        try:
+            from rest_framework_simplejwt.token_blacklist.models import (
+                OutstandingToken,
+            )
+            for token in OutstandingToken.objects.filter(user=user).exclude(
+                blacklistedtoken__isnull=False
+            ):
+                token.blacklistedtoken_set.create()
+        except Exception:  # pragma: no cover - blacklist app not installed
+            pass
+        return Response({"detail": f"Password updated for {user.username}."})
 
 
 class AdminUserBulkDeleteView(APIView):

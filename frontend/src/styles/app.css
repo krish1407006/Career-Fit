@@ -535,3 +535,34 @@ input:disabled { background: var(--bg); color: var(--muted); }
 .score-tag.role-admin { background: #ede4ff; color: #6b3fa0; border-color: #d9c8f5; }
 .score-tag.role-recruiter { background: #e0f2f7; color: #0b6a80; border-color: #bfe2ec; }
 .score-tag.role-student { background: #e4ebff; color: var(--primary-dark); border-color: #c3d0f7; }
+
+/* Super email management: grants full admin access by email address. */
+.banner-warning {
+  border-left: 4px solid var(--warn, #b45309);
+  background: rgba(180, 83, 9, 0.08);
+}
+
+.banner-success {
+  border-left: 4px solid #15803d;
+  background: rgba(21, 128, 61, 0.08);
+}
+
+.pill-info { background: rgba(37, 99, 235, 0.12); color: #1d4ed8; }
+.pill-success { background: rgba(21, 128, 61, 0.12); color: #15803d; }
+.pill-muted { background: rgba(100, 116, 139, 0.14); color: #475569; }
+
+.btn-danger-ghost {
+  background: transparent;
+  border: 1px solid #dc2626;
+  color: #dc2626;
+}
+.btn-danger-ghost:hover:not(:disabled) { background: rgba(220, 38, 38, 0.08); }
+
+.admin-pill {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
