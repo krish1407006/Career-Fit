@@ -7,6 +7,8 @@ django.setup()
 from django.apps import apps
 from django.db import connection
 
+
+
 TABLES = ["accounts_user", "accounts_studentprofile", "accounts_recruiterprofile"]
 
 out = []
