@@ -7,9 +7,16 @@ Usage:
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
-from apps.accounts.models import RecruiterProfile
+from apps.accounts.models import RecruiterProfile, StudentProfile
 from apps.assessments.models import Question, Quiz
 from apps.jobs.models import Job, Skill
+
+# Documented demo logins, printed at the end of every seed run.
+DEMO_PASSWORDS = {
+    "admin": "Admin@123",
+    "student": "Student@123",
+    "recruiter": "Recruiter@123",
+}
 
 Q = Quiz
 
@@ -310,6 +317,10 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--reset", action="store_true", help="Delete existing demo data first.")
+        parser.add_argument(
+            "--reset-passwords", action="store_true",
+            help="Force the documented demo password on admin, student1 and acme_recruiter.",
+        )
 
     def handle(self, *args, **options):
         if options["reset"]:
@@ -317,6 +328,44 @@ class Command(BaseCommand):
             Job.objects.all().delete()
             self.stdout.write("Cleared skills and jobs.")
         admin_user = User.objects.filter(username="admin").first()
+        if admin_user is None:
+            # Without this the seeded quizzes have no owner, and there is no way
+            # to sign in as an admin at all on a fresh database.
+            admin_user = User.objects.create_superuser(
+                username="admin", email="admin@careerfit.local", password=DEMO_PASSWORDS["admin"],
+            )
+            self.stdout.write(f"Created admin user 'admin' ({DEMO_PASSWORDS['admin']}).")
+
+        student, s_created = User.objects.get_or_create(            username="student1",
+            defaults={
+                "email": "student@careerfit.local",
+                "first_name": "Sam",
+                "last_name": "Student",
+                "role": User.Role.STUDENT,
+            },
+        )
+        if s_created:
+            student.set_password(DEMO_PASSWORDS["student"])
+            student.save()
+            StudentProfile.objects.get_or_create(
+                user=student,
+                defaults={"full_name": "Sam Student", "college": "Demo Institute",
+                          "degree": "B.Tech", "branch": "Computer Science"},
+            )
+            self.stdout.write(f"Created student 'student1' ({DEMO_PASSWORDS['student']}).")
+
+        if options["reset_passwords"]:
+            # Demo accounts created before this flag existed have no known
+            # password, which makes the seeded app impossible to sign into.
+            for username, key in (("admin", "admin"), ("student1", "student"),
+                                  ("acme_recruiter", "recruiter")):
+                account = User.objects.filter(username=username).first()
+                if account is None:
+                    continue
+                account.set_password(DEMO_PASSWORDS[key])
+                account.is_active = True
+                account.save()
+                self.stdout.write(f"Reset password for '{username}'.")
 
         created_skills = 0
         for name, category in SKILLS:
@@ -333,7 +382,7 @@ class Command(BaseCommand):
             },
         )
         if r_created:
-            recruiter.set_password("Recruiter@123")
+            recruiter.set_password(DEMO_PASSWORDS["recruiter"])
             recruiter.save()
 
         profile, _ = RecruiterProfile.objects.get_or_create(
@@ -380,4 +429,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f"Seeded: {created_skills} skills, recruiter '{recruiter.username}', "
             f"{job_count} jobs, {len(QUIZZES)} quizzes (+{question_count} new questions)."
+        ))
+        self.stdout.write("Demo logins: " + ", ".join(
+            f"{name} / {password}" for name, password in DEMO_PASSWORDS.items()
         ))
