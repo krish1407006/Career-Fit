@@ -10,7 +10,6 @@ import logging
 from django.conf import settings
 
 from .errors import AiError
-from .interview_offline import offline_evaluate, offline_question, offline_summary
 from . import interview_service, providers, resume_analyzer
 
 logger = logging.getLogger(__name__)
