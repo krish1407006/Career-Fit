@@ -42,6 +42,11 @@ export function useSpeechSynthesis() {
   /**
    * Speak text. Resolves true when it actually spoke, false when muted,
    * unsupported or empty, so the caller can move on immediately.
+   *
+   * A watchdog is essential rather than defensive: if the platform has no
+   * installed voice it can accept the utterance and then never fire `onend` or
+   * `onerror`. Without the timeout the interview would sit on "AI is speaking"
+   * forever with no way for the student to answer.
    */
   const speak = useCallback(
     (text) =>
@@ -52,6 +57,7 @@ export function useSpeechSynthesis() {
           resolve(false)
           return
         }
+        let timer = null
         try {
           window.speechSynthesis.cancel()
           const utterance = new window.SpeechSynthesisUtterance(content)
@@ -63,6 +69,7 @@ export function useSpeechSynthesis() {
           const finish = (spoke) => {
             if (settled) return
             settled = true
+            if (timer) clearTimeout(timer)
             utteranceRef.current = null
             setSpeaking(false)
             resolve(spoke)
@@ -72,7 +79,18 @@ export function useSpeechSynthesis() {
           utteranceRef.current = utterance
           setSpeaking(true)
           window.speechSynthesis.speak(utterance)
+          // ~380ms per word plus a floor, so a long question is not cut off.
+          const words = content.split(/\s+/).length
+          timer = setTimeout(() => {
+            try {
+              window.speechSynthesis.cancel()
+            } catch {
+              // Ignore: already finished.
+            }
+            finish(true)
+          }, Math.max(6000, words * 380 + 3000))
         } catch {
+          if (timer) clearTimeout(timer)
           setSpeaking(false)
           resolve(false)
         }
