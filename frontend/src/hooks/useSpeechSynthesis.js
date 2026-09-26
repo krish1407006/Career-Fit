@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { pickVoice, speechSynthesisSupported } from '../lib/speech'
 
 /**
@@ -93,7 +93,10 @@ export function useSpeechSynthesis() {
     })
   }, [])
 
-  return { supported, speaking, muted, voice, speak, cancel, toggleMute }
+  return useMemo(
+    () => ({ supported, speaking, muted, voice, speak, cancel, toggleMute }),
+    [supported, speaking, muted, voice, speak, cancel, toggleMute],
+  )
 }
 
 export default useSpeechSynthesis

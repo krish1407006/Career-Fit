@@ -51,13 +51,20 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
       setError('')
     },
   })
+  const { cancel: cancelTts } = tts
+  const { start: startListening, stop: stopListening, reset: resetListening } = stt
 
   const voiceAvailable = stt.supported
   const ttsAvailable = tts.supported
+  const voiceBlocker = stt.blocker
 
   // Announce the current question, but only once per question.
   useEffect(() => {
-    if (!question) return
+    if (!question) {
+      // Nothing to read out: do not leave the student staring at "AI is speaking".
+      setStage((current) => (current === 'ai_speaking' ? 'awaiting_answer' : current))
+      return undefined
+    }
     if (spokenIdsRef.current.has(question)) return
     spokenIdsRef.current.add(question)
     let cancelled = false
@@ -75,14 +82,17 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question])
 
-  useEffect(() => () => tts.cancel(), [tts])
+  // Stop speaking when the panel goes away. Depends on the stable `cancel`
+  // callback, never on the `tts` object, which would otherwise fire this
+  // cleanup after every render and cancel the question mid-sentence.
+  useEffect(() => () => cancelTts(), [cancelTts])
 
   // A new question arrives: reset the answer surface.
   useEffect(() => {
     setTranscript('')
     setTyped('')
     setSpokeCurrent(false)
-    stt.reset()
+    resetListening()
     tokenRef.current = makeClientToken()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question])
@@ -97,13 +107,13 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
   const onMic = useCallback(() => {
     setError('')
     if (stt.listening) {
-      stt.stop()
+      stopListening()
       setStage('awaiting_answer')
       return
     }
     setStage('listening')
-    stt.start()
-  }, [stt])
+    startListening()
+  }, [stt.listening, startListening, stopListening])
 
   const onSubmit = useCallback(async () => {
     if (!canSubmit) return
@@ -115,7 +125,7 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
     setSubmitting(true)
     setError('')
     setStage('processing')
-    stt.stop()
+    stopListening()
     try {
       const res = await onAnswered(text, tokenRef.current)
       if (res?.completed) {
@@ -135,7 +145,7 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
     } finally {
       setSubmitting(false)
     }
-  }, [answer, canSubmit, onAnswered, onCompleted, stt, tts, typed])
+  }, [answer, canSubmit, onAnswered, onCompleted, tts, typed, stopListening])
 
   const onRepeat = useCallback(() => {
     if (!question) return
@@ -172,7 +182,7 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
 
       {!voiceAvailable && (
         <div className="alert warn">
-          {UNSUPPORTED_MESSAGE}
+          {voiceBlocker || UNSUPPORTED_MESSAGE}
         </div>
       )}
       {!ttsAvailable && tts.muted === false && (
@@ -183,7 +193,9 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
 
       <div className="voice-panel interviewer">
         <p className="muted small">AI INTERVIEWER</p>
-        <p className="voice-question">{question || 'Preparing your first question…'}</p>
+        <p className="voice-question">
+          {question || 'No question is ready yet. End the interview or start a new one.'}
+        </p>
         <div className="voice-controls">
           <button className="btn btn-ghost" onClick={onRepeat} disabled={!question || tts.muted}>
             🔁 Repeat question
@@ -200,7 +212,7 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
         </div>
       </div>
 
-      {!done && (
+      {!done && question && (
         <div className="voice-panel student">
           <p className="muted small">YOUR TURN</p>
           <div className="voice-controls">

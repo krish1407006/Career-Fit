@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   cleanTranscript,
   describeRecognitionError,
   getSpeechRecognition,
+  speechRecognitionBlocker,
   speechRecognitionSupported,
 } from '../lib/speech'
 
@@ -20,13 +21,24 @@ import {
  */
 export function useSpeechRecognition({ onFinal } = {}) {
   const supported = speechRecognitionSupported()
+  const blocker = useMemo(speechRecognitionBlocker, [])
   const recognitionRef = useRef(null)
   const finalRef = useRef('')
   const onFinalRef = useRef(onFinal)
+  // `onend` fires after `onerror`, and it must not overwrite the real reason the
+  // microphone failed, so the message is tracked in a ref rather than read from
+  // a stale render closure.
+  const errorRef = useRef('')
+  const listeningRef = useRef(false)
   const [listening, setListening] = useState(false)
   const [interim, setInterim] = useState('')
   const [transcript, setTranscript] = useState('')
   const [error, setError] = useState('')
+
+  const setErrorBoth = useCallback((message) => {
+    errorRef.current = message
+    setError(message)
+  }, [])
 
   useEffect(() => {
     onFinalRef.current = onFinal
@@ -45,6 +57,7 @@ export function useSpeechRecognition({ onFinal } = {}) {
       }
     }
     recognitionRef.current = null
+    listeningRef.current = false
     setListening(false)
     setInterim('')
   }, [])
@@ -57,8 +70,8 @@ export function useSpeechRecognition({ onFinal } = {}) {
     finalRef.current = ''
     setTranscript('')
     setInterim('')
-    setError('')
-  }, [])
+    setErrorBoth('')
+  }, [setErrorBoth])
 
   const stop = useCallback(() => {
     const recognition = recognitionRef.current
@@ -71,29 +84,30 @@ export function useSpeechRecognition({ onFinal } = {}) {
     }
   }, [])
 
+  // Stable identity: the panel memoises callbacks on it, so a new object per
+  // render would re-create them constantly.
   const start = useCallback(() => {
-    if (!supported) {
-      setError('Voice input is not supported in this browser. Use text mode instead.')
-      return
-    }
-    if (listening) return
+    if (listeningRef.current) return
 
     const Recognition = getSpeechRecognition()
     if (!Recognition) {
-      setError('Voice input is not supported in this browser. Use text mode instead.')
+      setErrorBoth(
+        speechRecognitionBlocker() ||
+          'Voice input is not supported in this browser. Use text interview mode instead.',
+      )
       return
     }
 
     const recognition = new Recognition()
     recognition.lang = 'en-US'
-    recognition.continuous = false
+    recognition.continuous = true
     recognition.interimResults = true
     recognition.maxAlternatives = 1
 
     finalRef.current = ''
     setTranscript('')
     setInterim('')
-    setError('')
+    setErrorBoth('')
 
     recognition.onresult = (event) => {
       let live = ''
@@ -113,45 +127,52 @@ export function useSpeechRecognition({ onFinal } = {}) {
 
     recognition.onerror = (event) => {
       const message = describeRecognitionError(event)
-      if (message) setError(message)
+      if (message) setErrorBoth(message)
     }
 
     recognition.onend = () => {
       const finalText = cleanTranscript(finalRef.current)
       recognitionRef.current = null
+      listeningRef.current = false
       setListening(false)
       setInterim('')
       if (finalText) {
         setTranscript(finalText)
         onFinalRef.current?.(finalText)
-      } else if (!error) {
-        setError('Nothing was recognised. Try again, or type your answer instead.')
+      } else if (!errorRef.current) {
+        setErrorBoth('Nothing was recognised. Try again, or type your answer instead.')
       }
     }
 
     try {
       recognition.start()
       recognitionRef.current = recognition
+      listeningRef.current = true
       setListening(true)
     } catch {
       recognitionRef.current = null
+      listeningRef.current = false
       setListening(false)
-      setError('The microphone could not be started. Type your answer instead.')
+      setErrorBoth('The microphone could not be started. Type your answer instead.')
     }
-  }, [error, listening, supported])
+  }, [setErrorBoth])
 
-  return {
-    supported,
-    listening,
-    /** Live preview of words not yet finalised. */
-    interim,
-    /** Final recognised transcript for the current answer. */
-    transcript,
-    error,
-    start,
-    stop,
-    reset,
-  }
+  return useMemo(
+    () => ({
+      supported,
+      blocker,
+      listening,
+      /** Live preview of words not yet finalised. */
+      interim,
+      /** Final recognised transcript for the current answer. */
+      transcript,
+      error,
+      start,
+      stop,
+      reset,
+    }),
+    [supported, blocker, listening, interim, transcript, error, start, stop, reset],
+  )
 }
 
 export default useSpeechRecognition

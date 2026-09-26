@@ -26,11 +26,42 @@ export const getSpeechRecognition = () => {
 /** True when this browser can transcribe speech in-page. */
 export const speechRecognitionSupported = () => Boolean(getSpeechRecognition())
 
+/**
+ * Why voice input cannot be used right now, or null when it can.
+ *
+ * The microphone is only exposed in a secure context, so `http://` on anything
+ * other than localhost silently kills the feature. Reporting the reason turns a
+ * dead button into something the student can act on.
+ */
+export const speechRecognitionBlocker = () => {
+  if (typeof window === 'undefined') return 'No browser window is available.'
+  if (!window.isSecureContext) {
+    return 'Voice input needs a secure connection. Open the app on https:// or on http://localhost, not a plain http:// network address.'
+  }
+  if (!getSpeechRecognition()) {
+    return 'This browser has no speech recognition. Chrome or Edge support it; in Firefox or Safari, type your answer instead.'
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    return 'This browser blocks microphone access. Type your answer instead.'
+  }
+  return null
+}
+
 /** True when this browser can speak text aloud. */
 export const speechSynthesisSupported = () =>
   typeof window !== 'undefined' &&
   'speechSynthesis' in window &&
   typeof window.SpeechSynthesisUtterance === 'function'
+
+/** True when the platform exposes an installed voice for playback. */
+export const speechSynthesisHasVoices = () => {
+  if (!speechSynthesisSupported()) return false
+  try {
+    return window.speechSynthesis.getVoices().length > 0
+  } catch {
+    return false
+  }
+}
 
 /**
  * Pick the most suitable installed voice.
