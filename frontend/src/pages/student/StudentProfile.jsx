@@ -329,14 +329,14 @@ function CrudSection({ title, items, fields, emptyText, renderItem, empty, onAdd
 function ResumeCard({ resume, onChanged }) {
   const [busy, setBusy] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
-  const [analysis, setAnalysis] = useState(null)
+  // Holds a freshly fetched analysis so the card updates immediately; falls
+  // back to the analysis embedded in the profile payload.
+  const [freshAnalysis, setFreshAnalysis] = useState(null)
   const [error, setError] = useState('')
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef(null)
 
-  useEffect(() => {
-    setAnalysis(resume?.analysis ?? null)
-  }, [resume?.id, resume?.analysis?.updated_at, resume?.analysis?.status])
+  const analysis = freshAnalysis ?? resume?.analysis ?? null
 
   const handleFile = async (file) => {
     if (!file) return
@@ -348,7 +348,7 @@ function ResumeCard({ resume, onChanged }) {
     setError('')
     try {
       await uploadResume(file)
-      setAnalysis(null)
+      setFreshAnalysis(null)
       onChanged?.()
     } catch (err) {
       setError(apiError(err, 'Upload failed'))
@@ -361,7 +361,7 @@ function ResumeCard({ resume, onChanged }) {
     if (!window.confirm('Delete your current resume?')) return
     try {
       await deleteResume(resume.id)
-      setAnalysis(null)
+      setFreshAnalysis(null)
       onChanged?.()
     } catch (err) {
       setError(apiError(err, 'Delete failed'))
@@ -373,7 +373,7 @@ function ResumeCard({ resume, onChanged }) {
     setError('')
     try {
       const data = await analyzeResume(resume.id)
-      setAnalysis(data)
+      setFreshAnalysis(data)
       onChanged?.()
     } catch (err) {
       setError(apiError(err, 'Could not analyse your resume'))
