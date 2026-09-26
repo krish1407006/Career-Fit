@@ -407,3 +407,29 @@ input:disabled { background: var(--bg); color: var(--muted); }
 .status-summary { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 8px 0 12px; }
 .applicant-job-title { margin: 14px 0 6px; font-size: 15px; }
 .link-btn { margin-left: 12px; }
+/* ---------- Phase 6: AI resume analysis ---------- */
+.analysis-card h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+}
+.analysis-block { margin-top: 16px; }
+.analysis-list { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.analysis-list li { font-size: 14px; line-height: 1.6; color: var(--text); }
+.analysis-list.ok li::marker { color: var(--ok); }
+.analysis-list.bad li::marker { color: var(--bad); }
+.analysis-score { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.analysis-score .score-big { font-size: 30px; font-weight: 900; color: var(--primary); }
+.ai-chip { background: #e4ebff; color: var(--primary-dark); border-color: #c3d0f7; }
+.chip.remove.ai-chip { background: #e4ebff; border-color: #c3d0f7; }
+.warn-box {
+  background: #fff7e6;
+  color: #b45309;
+  border: 1px solid #f5dfb0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+}
