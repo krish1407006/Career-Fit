@@ -13,6 +13,7 @@ import Layout from './components/Layout'
 import AdminLayout from './pages/admin/AdminLayout'
 import AdminArea from './pages/admin/AdminArea'
 import AdminQuizzes from './pages/admin/AdminQuizzes'
+import AdminAccounts from './pages/admin/AdminAccounts'
 import StudentLayout from './pages/student/StudentLayout'
 import StudentHome from './pages/student/StudentHome'
 import StudentProfile from './pages/student/StudentProfile'
@@ -90,8 +91,9 @@ function AppRoutes() {
             </RequireRole>
           }
         >
-          <Route index element={<AdminArea />} />
-          <Route path="quizzes" element={<AdminQuizzes />} />
+        <Route index element={<AdminArea />} />
+        <Route path="quizzes" element={<AdminQuizzes />} />
+        <Route path="accounts" element={<AdminAccounts />} />
         </Route>
         <Route
           path="/student"

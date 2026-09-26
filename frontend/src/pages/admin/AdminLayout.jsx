@@ -11,6 +11,9 @@ export default function AdminLayout() {
         <NavLink to="/admin/quizzes" className={link}>
           Quizzes
         </NavLink>
+        <NavLink to="/admin/accounts" className={link}>
+          Accounts
+        </NavLink>
       </nav>
       <Outlet />
     </div>

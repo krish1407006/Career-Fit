@@ -200,14 +200,18 @@ class AdminUserUpdateView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdminRole]
 
     def put(self, request, *args, **kwargs):
-        instance = self.get_object()
-        if instance == request.user:
+        if self.get_object() == request.user:
             return Response({"detail": "You cannot edit your own admin account."},
                             status=status.HTTP_400_BAD_REQUEST)
         return super().put(request, *args, **kwargs)
 
     def patch(self, request, *args, **kwargs):
-        return self.put(request, *args, **kwargs)
+        # Must not delegate to put(): that drops partial=True, so a PATCH that
+        # only toggles is_active would demand role as well.
+        if self.get_object() == request.user:
+            return Response({"detail": "You cannot edit your own admin account."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        return super().partial_update(request, *args, **kwargs)
 
     def delete(self, request, *args, **kwargs):
         instance = self.get_object()

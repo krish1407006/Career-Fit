@@ -524,3 +524,14 @@ input:disabled { background: var(--bg); color: var(--muted); }
 @media (prefers-reduced-motion: reduce) {
   .level-meter-fill { transition: none; }
 }
+
+/* Admin account management */
+.admin-accounts { display: grid; gap: 14px; }
+.admin-accounts-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.admin-accounts-controls input { flex: 1 1 260px; min-width: 200px; }
+.admin-accounts-controls select { min-width: 150px; }
+.admin-accounts-actions { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.app-table tbody tr.is-selected { background: #eef3ff; }
+.score-tag.role-admin { background: #ede4ff; color: #6b3fa0; border-color: #d9c8f5; }
+.score-tag.role-recruiter { background: #e0f2f7; color: #0b6a80; border-color: #bfe2ec; }
+.score-tag.role-student { background: #e4ebff; color: var(--primary-dark); border-color: #c3d0f7; }

@@ -400,3 +400,154 @@ class Phase1RegressionTests(AuthAPITestCase):
         self.assertEqual(listed.status_code, status.HTTP_200_OK)
         titles = [j["title"] for j in listed.data]
         self.assertIn("Junior Developer", titles)
+
+
+class LoginErrorMessageTests(AuthAPITestCase):
+    """A wrong password must not be reported as a missing account.
+
+    SimpleJWT's stock message says "No active account found with the given
+    credentials" for both cases, which pushes a real user into registering a
+    duplicate account instead of retyping their password.
+    """
+
+    def test_wrong_password_does_not_claim_the_account_is_missing(self):
+        self.make_student()
+        response = self.login(STUDENT_PAYLOAD["username"], "definitely-not-the-password")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        detail = str(response.data["detail"]).lower()
+        self.assertNotIn("no active account", detail)
+        self.assertIn("incorrect", detail)
+
+    def test_unknown_user_and_wrong_password_are_indistinguishable(self):
+        self.make_student()
+        unknown = self.login("no_such_user_here", "some-password")
+        wrong = self.login(STUDENT_PAYLOAD["username"], "some-password")
+        self.assertEqual(unknown.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(wrong.status_code, status.HTTP_401_UNAUTHORIZED)
+        # Identical wording: the response must not reveal which usernames exist.
+        self.assertEqual(unknown.data["detail"], wrong.data["detail"])
+
+    def test_disabled_account_cannot_log_in(self):
+        user = self.make_student()
+        user.is_active = False
+        user.save(update_fields=["is_active"])
+        response = self.login(STUDENT_PAYLOAD["username"], STUDENT_PAYLOAD["password"])
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class AdminAccountManagementTests(AuthAPITestCase):
+    """The admin accounts screen: list every account, select and remove."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username="boss_admin", password="Str0ngPass!23",
+            email="boss@example.com", role=User.Role.ADMIN, is_staff=True,
+        )
+        self.student = self.make_student()
+        self.recruiter = self.make_recruiter()
+        tokens = self.login_tokens("boss_admin", "Str0ngPass!23")
+        self.authenticate(tokens["access"])
+
+    def test_admin_sees_every_account_with_their_records(self):
+        response = self.client.get("/api/auth/admin/users/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        rows = response.data["results"] if isinstance(response.data, dict) else response.data
+        usernames = {row["username"] for row in rows}
+        self.assertEqual(usernames, {"boss_admin", "jane_student", "acme_hiring"})
+
+        jane = next(row for row in rows if row["username"] == "jane_student")
+        self.assertEqual(jane["role"], "student")
+        self.assertTrue(jane["is_active"])
+        self.assertEqual(jane["full_name"], "Jane Doe")
+        self.assertIn("related_counts", jane)
+
+        acme = next(row for row in rows if row["username"] == "acme_hiring")
+        self.assertEqual(acme["company_name"], "acme_hiring")
+
+    def test_student_cannot_reach_the_account_list(self):
+        tokens = self.login_tokens(STUDENT_PAYLOAD["username"], STUDENT_PAYLOAD["password"])
+        self.authenticate(tokens["access"])
+        self.assertEqual(
+            self.client.get("/api/auth/admin/users/").status_code, status.HTTP_403_FORBIDDEN
+        )
+
+    def test_admin_can_bulk_delete_selected_accounts(self):
+        ids = [self.student.id, self.recruiter.id]
+        response = self.client.post(
+            "/api/auth/admin/users/bulk-delete/", {"ids": ids}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["deleted"], 2)
+        self.assertFalse(User.objects.filter(pk__in=ids).exists())
+
+    def test_bulk_delete_never_removes_the_acting_admin(self):
+        response = self.client.post(
+            "/api/auth/admin/users/bulk-delete/", {"ids": [self.admin.id]}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(User.objects.filter(pk=self.admin.pk).exists())
+
+    def test_bulk_delete_keeps_at_least_one_active_admin(self):
+        second = User.objects.create_user(
+            username="boss_two", password="Str0ngPass!23", role=User.Role.ADMIN,
+        )
+        # Both admins selected: the request must be refused, not half-applied.
+        response = self.client.post(
+            "/api/auth/admin/users/bulk-delete/",
+            {"ids": [self.admin.id, second.id]}, format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(User.objects.filter(role=User.Role.ADMIN).count(), 2)
+
+    def test_bulk_delete_can_remove_all_but_one_admin(self):
+        second = User.objects.create_user(
+            username="boss_two", password="Str0ngPass!23", role=User.Role.ADMIN,
+        )
+        response = self.client.post(
+            "/api/auth/admin/users/bulk-delete/", {"ids": [second.id]}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["deleted"], 1)
+        self.assertTrue(User.objects.filter(pk=self.admin.pk).exists())
+
+    def test_bulk_delete_rejects_an_empty_selection(self):
+        response = self.client.post(
+            "/api/auth/admin/users/bulk-delete/", {"ids": []}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_bulk_delete_rejects_an_unknown_id_and_deletes_nothing(self):
+        response = self.client.post(
+            "/api/auth/admin/users/bulk-delete/",
+            {"ids": [self.student.id, 999999]}, format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        # The valid id in the same request must survive.
+        self.assertTrue(User.objects.filter(pk=self.student.pk).exists())
+
+    def test_admin_can_disable_and_re_enable_an_account(self):
+        response = self.client.patch(
+            f"/api/auth/admin/users/{self.student.id}/", {"is_active": False}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.student.refresh_from_db()
+        self.assertFalse(self.student.is_active)
+
+        # A disabled account must not be able to sign in.
+        self.client.credentials()
+        self.assertEqual(
+            self.login(STUDENT_PAYLOAD["username"], STUDENT_PAYLOAD["password"]).status_code,
+            status.HTTP_401_UNAUTHORIZED,
+        )
+
+    def test_single_delete_keeps_the_last_admin(self):
+        response = self.client.delete(f"/api/auth/admin/users/{self.admin.id}/")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(User.objects.filter(pk=self.admin.pk).exists())
+
+    def test_deleting_an_account_removes_its_related_records(self):
+        from apps.interviews.models import InterviewSession
+        InterviewSession.objects.create(student=self.student, position="Django Developer")
+        self.assertEqual(InterviewSession.objects.filter(student=self.student).count(), 1)
+        self.client.delete(f"/api/auth/admin/users/{self.student.id}/")
+        self.assertEqual(InterviewSession.objects.filter(student=self.student).count(), 0)

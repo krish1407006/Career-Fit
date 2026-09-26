@@ -1,10 +1,10 @@
 from rest_framework import serializers
-from rest_framework_simplejwt.serializers import TokenObtainSerializer
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import RecruiterProfile, StudentProfile, User
 
 
-class LoginSerializer(TokenObtainSerializer):
+class LoginSerializer(TokenObtainPairSerializer):
     """Login serializer whose error message is actually true.
 
     SimpleJWT raises ``no_active_account`` whenever ``authenticate()`` returns
@@ -12,10 +12,13 @@ class LoginSerializer(TokenObtainSerializer):
     Telling the student their account does not exist pushes them into registering
     a duplicate. This wording covers both cases without revealing which one it
     was, so username enumeration stays closed.
+
+    Extends ``TokenObtainPairSerializer`` (not the bare obtain serializer) so
+    ``token_class`` is set and login still returns access + refresh tokens.
     """
 
     default_error_messages = {
-        **TokenObtainSerializer.default_error_messages,
+        **TokenObtainPairSerializer.default_error_messages,
         "no_active_account": "Incorrect username or password. Please try again.",
     }
 
