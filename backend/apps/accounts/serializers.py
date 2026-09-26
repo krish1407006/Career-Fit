@@ -43,6 +43,48 @@ class UserSerializer(serializers.ModelSerializer):
                   "phone", "is_student", "is_recruiter", "is_admin_role"]
 
 
+class AdminUserSerializer(serializers.ModelSerializer):
+    """Everything an admin needs to identify an account on one screen."""
+
+    full_name = serializers.SerializerMethodField()
+    company_name = serializers.SerializerMethodField()
+    related_counts = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "email", "first_name", "last_name", "full_name",
+                  "phone", "role", "is_active", "is_staff", "date_joined",
+                  "last_login", "company_name", "related_counts"]
+
+    def get_full_name(self, obj):
+        return (f"{obj.first_name} {obj.last_name}").strip()
+
+    def get_company_name(self, obj):
+        profile = getattr(obj, "recruiter_profile", None)
+        return profile.company_name if profile else ""
+
+    def get_related_counts(self, obj):
+        """What deleting this account will take with it."""
+        counts = {
+            "resumes": 0, "applications": 0, "interviews": 0,
+            "quiz_attempts": 0, "jobs": 0,
+        }
+        # Collected here rather than by annotating the queryset so the serializer
+        # stays usable for a single object too.
+        for attr, key in (
+            ("resumes", "resumes"), ("applications", "applications"),
+            ("interview_sessions", "interviews"), ("quiz_attempts", "quiz_attempts"),
+        ):
+            related = getattr(obj, attr, None)
+            if related is not None and hasattr(related, "count"):
+                counts[key] = related.count()
+        if obj.role == User.Role.RECRUITER:
+            related = getattr(obj, "jobs", None)
+            if related is not None and hasattr(related, "count"):
+                counts["jobs"] = related.count()
+        return counts
+
+
 class UserAdminUpdateSerializer(serializers.ModelSerializer):
     """Admin editing of a user: change role and/or activation state."""
 

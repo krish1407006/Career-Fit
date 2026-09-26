@@ -7,6 +7,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .serializers import (
+    AdminUserSerializer,
     LoginSerializer,
     RecruiterProfileDetailSerializer,
     RegisterSerializer,
@@ -140,15 +141,55 @@ class MeView(generics.RetrieveUpdateAPIView):
 
 
 class AdminUserListView(generics.ListAPIView):
-    """Admin-only listing of all platform users."""
+    """Admin-only listing of all platform users, with what they own."""
 
-    serializer_class = UserSerializer
+    serializer_class = AdminUserSerializer
     permission_classes = [IsAdminRole]
     filterset_fields = ["role", "is_active"]
 
     def get_queryset(self):
         return User.objects.select_related("student_profile", "recruiter_profile")\
             .all().order_by("-created_at")
+
+
+class AdminUserBulkDeleteView(APIView):
+    """Delete several accounts in one request from the admin accounts screen."""
+
+    permission_classes = [IsAdminRole]
+
+    def post(self, request):
+        ids = request.data.get("ids")
+        if not isinstance(ids, list) or not ids:
+            return Response({"detail": "Select at least one account to delete."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            ids = [int(value) for value in ids]
+        except (TypeError, ValueError):
+            return Response({"detail": "Account ids must be numbers."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        targets = list(User.objects.filter(pk__in=ids))
+        found = {user.pk for user in targets}
+        missing = sorted(set(ids) - found)
+        if missing:
+            return Response({"detail": f"No account with id {missing[0]}."},
+                            status=status.HTTP_404_NOT_FOUND)
+        if any(user == request.user for user in targets):
+            return Response({"detail": "You cannot delete your own admin account."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        remaining_admins = User.objects.filter(role=User.Role.ADMIN, is_active=True)\
+            .exclude(pk__in=[user.pk for user in targets]).count()
+        if remaining_admins == 0:
+            return Response(
+                {"detail": "At least one active admin account must remain."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        deleted = len(targets)
+        for user in targets:
+            user.delete()
+        return Response({"deleted": deleted}, status=status.HTTP_200_OK)
 
 
 class AdminUserUpdateView(generics.RetrieveUpdateDestroyAPIView):
@@ -173,5 +214,12 @@ class AdminUserUpdateView(generics.RetrieveUpdateDestroyAPIView):
         if instance == request.user:
             return Response({"detail": "You cannot delete your own admin account."},
                             status=status.HTTP_400_BAD_REQUEST)
+        # Deleting the final admin would lock everyone out of account management.
+        if (instance.role == User.Role.ADMIN
+                and User.objects.filter(role=User.Role.ADMIN, is_active=True).count() <= 1):
+            return Response(
+                {"detail": "At least one active admin account must remain."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         instance.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
