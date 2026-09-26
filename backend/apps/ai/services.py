@@ -10,11 +10,15 @@ import logging
 from django.conf import settings
 
 from .errors import AiError
-from .extraction import build_offline_analysis
 from .interview_offline import offline_evaluate, offline_question, offline_summary
-from . import providers
+from . import providers, resume_analyzer
 
 logger = logging.getLogger(__name__)
+
+# Legacy prompt kept for reference only; apps/ai/resume_analyzer.py owns the
+# live resume-analysis prompt and output contract.
+RESUME_ANALYSIS_SYSTEM = "(superseded by apps.ai.resume_analyzer.SYSTEM_PROMPT)"
+
 
 RESUME_ANALYSIS_SYSTEM = """You are an expert technical recruiter. Analyse the \
 candidate's resume text and return ONLY valid JSON with this exact shape:
@@ -37,40 +41,32 @@ Rules:
 
 
 def analyze_resume(text):
-    """Analyse resume text -> dict with skills/summary/education/experience/score/suggestions."""
-    if not text or not text.strip():
-        return build_offline_analysis("")
+    """Legacy flat resume analysis: {skills, summary, education, experience, score, suggestions}.
 
-    if not providers.is_configured():
-        return _fallback(text, reason="AI provider not configured")
-
+    Thin wrapper over :mod:`apps.ai.resume_analyzer`, which owns the actual
+    prompt, provider call and output validation. New code should call
+    :func:`apps.ai.resume_analyzer.analyze_resume_text` directly to get the
+    structured Phase 6 payload.
+    """
     try:
-        result = providers.chat_json(
-            [
-                {"role": "system", "content": RESUME_ANALYSIS_SYSTEM},
-                {"role": "user", "content": f"RESUME:\n{text}"},
-            ],
-            temperature=0.2,
-            timeout=90,
-        )
-        result.setdefault("skills", [])
-        result.setdefault("summary", "")
-        result.setdefault("education", [])
-        result.setdefault("experience", [])
-        result.setdefault("score", 0)
-        result.setdefault("suggestions", [])
-        result["source"] = "ai"
-        return result
-    except AiError as exc:
-        logger.warning("Resume AI analysis failed (%s); falling back to offline.", exc)
+        result = resume_analyzer.analyze_resume_text(text or "")
+    except (AiError, resume_analyzer.AiParseError) as exc:
+        logger.warning("Resume AI analysis failed (%s); falling back to offline.", exc.__class__.__name__)
         if settings.AI_REQUIRED:
             raise
-        return build_offline_analysis(text)
+        result = resume_analyzer._offline_analysis(  # noqa: SLF001 - same package
+            text or "", notice=resume_analyzer.OFFLINE_FALLBACK_NOTICE
+        )
+    return {
+        "skills": result["detected_skills"],
+        "summary": result["summary"],
+        "education": result["education"],
+        "experience": result["experience"],
+        "score": result["score"],
+        "suggestions": result["improvements"],
+        "source": result["source"],
+    }
 
-
-def _fallback(text, reason):
-    logger.info("Resume analysis using offline path: %s", reason)
-    return build_offline_analysis(text)
 
 
 INTERVIEW_QUESTION_SYSTEM = """You are an expert technical interviewer for a \
