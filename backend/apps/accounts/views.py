@@ -7,6 +7,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .serializers import (
+    LoginSerializer,
     RecruiterProfileDetailSerializer,
     RegisterSerializer,
     StudentProfileDetailSerializer,
@@ -24,6 +25,8 @@ class TokenObtainPairWithRoleView(TokenObtainPairView):
 
     Role/permissions checks then read from the token payload or /auth/me.
     """
+
+    serializer_class = LoginSerializer
 
     def post(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)

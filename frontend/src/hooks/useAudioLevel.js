@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { audioLevelSupported, rmsToLevel, smoothLevel, SPEAKING_LEVEL } from '../lib/speech'
 
 /**
@@ -16,12 +16,15 @@ import { audioLevelSupported, rmsToLevel, smoothLevel, SPEAKING_LEVEL } from '..
  * Failing to get a level is never fatal. If the stream is blocked the interview
  * carries on with speech recognition alone.
  */
-export function useAudioLevel({ barRef, onSpeakingChange } = {}) {
+export function useAudioLevel({ onSpeakingChange } = {}) {
   const supported = audioLevelSupported()
   const [active, setActive] = useState(false)
   const [error, setError] = useState('')
   const [speaking, setSpeaking] = useState(false)
 
+  // Owned here rather than passed in, so the animation frame can write to it
+  // without reaching through an argument.
+  const barRef = useRef(null)
   const streamRef = useRef(null)
   const contextRef = useRef(null)
   const frameRef = useRef(null)
@@ -54,13 +57,13 @@ export function useAudioLevel({ barRef, onSpeakingChange } = {}) {
       }
       contextRef.current = null
     }
-    const bar = barRef?.current
+    const bar = barRef.current
     if (bar) bar.style.width = '0%'
     smoothedRef.current = 0
     speakingRef.current = false
     setSpeaking(false)
     setActive(false)
-  }, [barRef])
+  }, [])
 
   useEffect(() => teardown, [teardown])
 
@@ -89,7 +92,7 @@ export function useAudioLevel({ barRef, onSpeakingChange } = {}) {
 
       const tick = () => {
         const buffer = samplesRef.current
-        const bar = barRef?.current
+        const bar = barRef.current
         if (buffer && analyser) {
           analyser.getByteTimeDomainData(buffer)
           const level = rmsToLevel(buffer)
@@ -107,8 +110,7 @@ export function useAudioLevel({ barRef, onSpeakingChange } = {}) {
         frameRef.current = requestAnimationFrame(tick)
       }
       frameRef.current = requestAnimationFrame(tick)
-    } catch (err) {
-      const name = err?.name || ''
+    } catch (err) {      const name = err?.name || ''
       teardown()
       if (name === 'NotAllowedError' || name === 'SecurityError') {
         setError('Microphone access was blocked, so the level meter is unavailable.')
@@ -118,13 +120,16 @@ export function useAudioLevel({ barRef, onSpeakingChange } = {}) {
         setError('The level meter could not start. Speech recognition still works.')
       }
     }
-  }, [barRef, supported, teardown])
+  }, [supported, teardown])
 
   const stop = useCallback(() => {
     teardown()
   }, [teardown])
 
-  return { supported, active, speaking, error, start, stop }
+  return useMemo(
+    () => ({ supported, active, speaking, error, start, stop, barRef }),
+    [supported, active, speaking, error, start, stop],
+  )
 }
 
 export default useAudioLevel

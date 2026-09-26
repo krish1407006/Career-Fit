@@ -44,7 +44,6 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
   const [spokeCurrent, setSpokeCurrent] = useState(false)
   const tokenRef = useRef('')
   const spokenIdsRef = useRef(new Set())
-  const meterBarRef = useRef(null)
 
   const tts = useSpeechSynthesis()
   const stt = useSpeechRecognition({
@@ -56,8 +55,8 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
   const { cancel: cancelTts } = tts
   const { start: startListening, stop: stopListening, reset: resetListening, interim } = stt
   // Runs alongside recognition purely to drive the level bar.
-  const meter = useAudioLevel({ barRef: meterBarRef })
-  const { start: startMeter, stop: stopMeter } = meter
+  const meter = useAudioLevel()
+  const { start: startMeter, stop: stopMeter, barRef: meterBarRef } = meter
 
   const voiceAvailable = stt.supported
   const ttsAvailable = tts.supported
