@@ -2,9 +2,15 @@ import { useCallback, useEffect, useState } from 'react'
 import { apiError } from '../../api/client'
 import {
   answerInterview,
+  cancelInterview,
+  completeInterview,
+  fetchActiveInterview,
   fetchMyInterviews,
   startInterview,
 } from '../../api/interviews'
+import { speechRecognitionSupported, speechSynthesisSupported, UNSUPPORTED_MESSAGE } from '../../lib/speech'
+import InterviewReport from '../../components/interviews/InterviewReport'
+import VoiceInterviewPanel from '../../components/interviews/VoiceInterviewPanel'
 
 const PRESET_ROLES = [
   'Python Developer',
@@ -15,64 +21,52 @@ const PRESET_ROLES = [
   'Machine Learning Engineer',
 ]
 
-function ScoreTag({ score }) {
-  const cls = score >= 70 ? 'ok' : score >= 40 ? 'warn' : 'bad'
-  return <span className={`score-tag ${cls}`}>{score}/100</span>
-}
-
-function TurnRow({ turn }) {
-  if (turn.kind === 'question') {
-    return (
-      <div className="card interview-turn q">
-        <p className="muted small">Interviewer</p>
-        <p className="summary">{turn.content}</p>
-      </div>
-    )
-  }
-  if (turn.kind === 'answer') {
-    return (
-      <div className="card interview-turn a">
-        <p className="muted small">You</p>
-        <p className="summary">{turn.content}</p>
-      </div>
-    )
-  }
-  return (
-    <div className="card interview-turn e">
-      <p className="muted small">Feedback</p>
-      {turn.score !== null && <ScoreTag score={turn.score} />}
-      <p className="summary">{turn.content}</p>
-      {turn.suggestions && <p className="muted small">Tip: {turn.suggestions}</p>}
-    </div>
-  )
+const STATUS_BADGE = {
+  completed: 'analyzed',
+  cancelled: 'failed',
+  aborted: 'failed',
+  in_progress: 'processing',
 }
 
 export default function Interview() {
   const [position, setPosition] = useState('')
+  const [job, setJob] = useState('')
   const [total, setTotal] = useState(5)
   const [starting, setStarting] = useState(false)
   const [session, setSession] = useState(null)
-  const [turns, setTurns] = useState([])
-  const [answer, setAnswer] = useState('')
-  const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [history, setHistory] = useState([])
+  const [active, setActive] = useState(null)
+  const [report, setReport] = useState(null)
+  const [mode, setMode] = useState('voice')
 
   const loadHistory = useCallback(() => {
     fetchMyInterviews().then(setHistory).catch(() => {})
   }, [])
 
+  // On mount: restore an in-progress interview so a browser refresh never loses
+  // the session, and offer "Resume interview" instead of forcing a new one.
   useEffect(() => {
     loadHistory()
+    fetchActiveInterview()
+      .then((data) => setActive(data || null))
+      .catch(() => {})
   }, [loadHistory])
 
   const onStart = async () => {
     setError('')
     setStarting(true)
     try {
-      const data = await startInterview({ position, total_questions: total })
+      const data = await startInterview({
+        position,
+        total_questions: total,
+        job: job ? Number(job) : null,
+        mode,
+      })
       setSession(data)
-      setTurns(data.turns)
+      setReport(null)
+      setActive(null)
+      loadHistory()
     } catch (e) {
       setError(apiError(e, 'Could not start interview'))
     } finally {
@@ -80,140 +74,205 @@ export default function Interview() {
     }
   }
 
-  const onSubmit = async () => {
+  const onResume = async () => {
     setError('')
-    setSending(true)
+    setStarting(true)
     try {
-      const res = await answerInterview(session.id, answer)
-      if (res.completed) {
-        setTurns([
-          ...turns,
-          { kind: 'answer', content: answer },
-          { kind: 'evaluation', ...res.evaluation },
-        ])
-        setSession({ ...session, report: res.report, status: 'completed' })
-      } else {
-        setTurns([
-          ...turns,
-          { kind: 'answer', content: answer },
-          { kind: 'evaluation', ...res.evaluation },
-          { kind: 'question', content: res.next_question },
-        ])
-      }
-      setAnswer('')
+      const data = await startInterview({ position: active.position, resume: true })
+      setSession(data)
+      setReport(null)
       loadHistory()
     } catch (e) {
-      setError(apiError(e, 'Could not submit answer'))
+      setError(apiError(e, 'Could not resume interview'))
     } finally {
-      setSending(false)
+      setStarting(false)
     }
   }
 
-  const done = session?.status === 'completed'
-  const answeredQuestions = turns.filter((t) => t.kind === 'question').length
-  const currentNumber = done ? answeredQuestions : Math.max(answeredQuestions, 1)
+  const onAnswered = async (text, token) => {
+    const res = await answerInterview(session.id, text, token)
+    setSession(res.session)
+    loadHistory()
+    return res
+  }
 
-  if (!session) {
+  const onCompleted = async (fallbackReport) => {
+    const finalReport = fallbackReport || (await completeInterview(session.id).catch(() => null))?.report
+    setReport(finalReport)
+    setSession((current) => ({ ...current, status: 'completed' }))
+    setActive(null)
+    loadHistory()
+  }
+
+  const onEnd = async () => {
+    setError('')
+    try {
+      const res = await completeInterview(session.id)
+      setReport(res.report || null)
+      setSession((current) => ({ ...current, status: res.session?.status || 'completed' }))
+    } catch (e) {
+      setError(apiError(e, 'Could not finish the interview'))
+    }
+    setActive(null)
+    loadHistory()
+  }
+
+  const onCancel = async () => {
+    await cancelInterview(session.id).catch(() => {})
+    setSession(null)
+    fetchActiveInterview().then((data) => setActive(data || null)).catch(() => {})
+    loadHistory()
+  }
+
+  const voiceOk = speechRecognitionSupported()
+
+  // ---------------- Live interview ----------------
+  if (session) {
     return (
       <div className="page">
-        <h1>AI mock interview</h1>
-        <p className="muted">
-          Practice with an AI interviewer. Answer each question honestly; you get
-          per-answer feedback and a final report.
-        </p>
         {error && <div className="alert error">{error}</div>}
-        <div className="card card-sheet" style={{ display: 'grid', gap: 14 }}>
-          <label>
-            Target role
-            <input
-              list="preset-roles"
-              placeholder="e.g. Python Developer"
-              value={position}
-              onChange={(e) => setPosition(e.target.value)}
-            />
-          </label>
-          <datalist id="preset-roles">
-            {PRESET_ROLES.map((r) => <option key={r} value={r} />)}
-          </datalist>
-          <label>
-            Number of questions (1–10)
-            <input type="number" min={1} max={10} value={total}
-              onChange={(e) => setTotal(e.target.value)} />
-          </label>
-          <button className="btn btn-primary" onClick={onStart} disabled={starting || !position.trim()}>
-            {starting ? 'Starting…' : 'Start interview'}
-          </button>
-        </div>
-
-        {history.length > 0 && (
+        <VoiceInterviewPanel
+          session={session}
+          onAnswered={onAnswered}
+          onCompleted={onCompleted}
+          onEnd={onEnd}
+        />
+        {session.status !== 'in_progress' && (
           <>
-            <h2 className="section-title">Past interviews</h2>
-            <div className="app-table-wrap">
-              <table className="app-table">
-                <thead>
-                  <tr><th>Role</th><th>Status</th><th>Questions</th><th>Date</th></tr>
-                </thead>
-                <tbody>
-                  {history.map((h) => (
-                    <tr key={h.id}>
-                      <td>{h.position}</td>
-                      <td><span className={`badge ${h.status === 'completed' ? 'analyzed' : h.status === 'aborted' ? 'failed' : 'processing'}`}>{h.status}</span></td>
-                      <td>{h.question_index}/{h.total_questions}</td>
-                      <td>{new Date(h.created_at).toLocaleDateString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="voice-controls">
+              <button className="btn btn-ghost" onClick={() => { setSession(null); setReport(null); loadHistory() }}>
+                Back to interviews
+              </button>
+              <button className="btn btn-ghost" onClick={onCancel}>Discard this interview</button>
             </div>
+            {report && <InterviewReport report={report} position={session.position} />}
           </>
         )}
       </div>
     )
   }
 
+  // ---------------- Setup / history ----------------
   return (
     <div className="page">
-      <div className="page-head">
-        <div>
-          <h1>{session.position}</h1>
-          <p className="muted">
-            Question {currentNumber} of {session.total_questions}
-          </p>
-        </div>
-        <button className="btn btn-ghost" onClick={() => { setSession(null); setTurns([]); setAnswer('') }}>
-          New interview
-        </button>
-      </div>
+      <h1>AI mock interview</h1>
+      <p className="muted">
+        A real-time, voice-based mock interview. The AI interviewer asks a question out
+        loud, you answer by speaking, and it evaluates your answer before choosing the
+        next question.
+      </p>
+
       {error && <div className="alert error">{error}</div>}
 
-      <div className="interview-thread">
-        {turns.map((t, i) => <TurnRow key={i} turn={t} />)}
-
-        {!done && (
-          <>
-            <div className="card interview-turn a">
-              <label>
-                Your answer
-                <textarea
-                  rows={5}
-                  placeholder="Type your answer here…"
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
-                />
-              </label>
+      {active && (
+        <div className="card card-sheet resume-interview">
+          <div className="page-head">
+            <div>
+              <h2>Interview in progress</h2>
+              <p className="muted">
+                {active.position} · {active.answered_count ?? 0}/{active.total_questions} answered
+                {' · '}
+                {active.mode === 'voice' ? 'voice mode' : 'text mode'}
+              </p>
             </div>
-            <button className="btn btn-primary" onClick={onSubmit} disabled={sending || !answer.trim()}>
-              {sending ? 'Submitting…' : 'Submit answer'}
+            <button className="btn btn-primary" onClick={onResume} disabled={starting}>
+              {starting ? 'Resuming…' : 'Resume interview'}
             </button>
-          </>
+          </div>
+          {active.current_question && (
+            <p className="muted small">Next question: “{active.current_question.content}”</p>
+          )}
+        </div>
+      )}
+
+      <div className="card card-sheet" style={{ display: 'grid', gap: 14 }}>
+        <h2 className="section-title">Start a new interview</h2>
+        <label>
+          Target role
+          <input
+            list="preset-roles"
+            placeholder="e.g. Python Developer"
+            value={position}
+            onChange={(e) => setPosition(e.target.value)}
+          />
+        </label>
+        <datalist id="preset-roles">
+          {PRESET_ROLES.map((r) => <option key={r} value={r} />)}
+        </datalist>
+        <label>
+          Job posting id (optional)
+          <input
+            type="number"
+            min={1}
+            placeholder="Paste a job id to tailor questions to its required skills"
+            value={job}
+            onChange={(e) => setJob(e.target.value)}
+          />
+        </label>
+        <label>
+          Number of questions (1–10)
+          <input
+            type="number"
+            min={1}
+            max={10}
+            value={total}
+            onChange={(e) => setTotal(e.target.value)}
+          />
+        </label>
+        <label>
+          Interview mode
+          <select value={mode} onChange={(e) => setMode(e.target.value)}>
+            <option value="voice">Voice (speak and listen)</option>
+            <option value="text">Text only</option>
+          </select>
+        </label>
+
+        {!voiceOk && <div className="alert warn">{UNSUPPORTED_MESSAGE}</div>}
+        {mode === 'voice' && !speechSynthesisSupported() && (
+          <div className="alert warn">
+            This browser cannot read questions aloud, so they will appear as text only.
+          </div>
+        )}
+
+        <button
+          className="btn btn-primary"
+          onClick={onStart}
+          disabled={starting || !position.trim() || Boolean(active)}
+        >
+          {starting ? 'Starting…' : 'Start interview'}
+        </button>
+        {active && (
+          <p className="muted small">
+            Finish or discard the interview in progress before starting a new one.
+          </p>
         )}
       </div>
 
-      {done && (
-        <div className="card result-card">
-          <h2>Interview complete</h2>
-          <p className="summary" style={{ color: 'var(--text)' }}>{session.report}</p>
-        </div>
+      {history.length > 0 && (
+        <>
+          <h2 className="section-title">Past interviews</h2>
+          <div className="app-table-wrap">
+            <table className="app-table">
+              <thead>
+                <tr><th>Role</th><th>Status</th><th>Questions</th><th>Date</th></tr>
+              </thead>
+              <tbody>
+                {history.map((h) => (
+                  <tr key={h.id}>
+                    <td>{h.position}</td>
+                    <td>
+                      <span className={`badge ${STATUS_BADGE[h.status] || 'processing'}`}>
+                        {String(h.status || '').replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td>{h.answered_count ?? h.question_index}/{h.total_questions}</td>
+                    <td>{new Date(h.created_at).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   )

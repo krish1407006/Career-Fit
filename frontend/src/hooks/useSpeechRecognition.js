@@ -151,8 +151,6 @@ export function useSpeechRecognition({ onFinal } = {}) {
     start,
     stop,
     reset,
-    /** True while the browser holds an active recognition session. */
-    active: Boolean(recognitionRef.current),
   }
 }
 
