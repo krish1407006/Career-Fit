@@ -227,8 +227,7 @@ def build_context(user, job=None, position=""):
     lookup is optional and defensive: a student with nothing on file still gets a
     usable context.
     """
-    from apps.profiles.models import StudentProfile
-    from apps.resumes.models import Resume
+    from apps.accounts.models import StudentProfile
 
     lines = []
 
@@ -265,8 +264,12 @@ def build_context(user, job=None, position=""):
         lines.append(f"Target role (no specific posting selected): {position}")
 
     # Phase 6 resume analysis: skill gaps make excellent follow-up material.
+    from apps.resumes.models import Resume, ResumeAnalysis
+
     latest = (
-        Resume.objects.filter(user=user, analysis__is_completed=True)
+        Resume.objects.filter(
+            user=user, analysis__status=ResumeAnalysis.Status.COMPLETED
+        )
         .select_related("analysis")
         .order_by("-created_at")
         .first()
@@ -590,3 +593,4 @@ __all__ = [
     "evaluate_answer",
     "generate_question",
 ]
+
