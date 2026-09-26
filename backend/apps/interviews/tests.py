@@ -626,13 +626,11 @@ class ResumeAndReportTests(InterviewTestBase):
 
     def test_report_is_generated_and_shaped_correctly(self):
         """13. Interview report is generated correctly."""
+        self.session_obj.total_questions = 1
+        self.session_obj.save()
         with mock.patch.object(interview_service, "evaluate_answer",
                                return_value=dict(EVALUATION_PAYLOAD, source="ai",
-                                                 provider="openai", notice="", raw={})), \
-             mock.patch.object(interview_service, "generate_question",
-                               return_value={"question": "Second?", "category": "technical",
-                                             "source": "offline", "provider": "offline",
-                                             "notice": "", "raw": {}}):
+                                                 provider="openai", notice="", raw={})):
             self.client.post(
                 f"/api/interviews/{self.session_obj.id}/answer/",
                 {"answer": "A thorough answer"}, format="json",
@@ -694,21 +692,20 @@ class ResumeAndReportTests(InterviewTestBase):
     def test_no_response_ever_contains_a_configured_api_key(self):
         """16. API keys are never sent to the frontend."""
         secret = "sk-test-do-not-leak-1234567890"
+        # this class already has an in-progress session, so start returns it
+        start = self.client.post(
+            self.url, {"position": "QA", "resume": True}, format="json"
+        )
+        self.assertEqual(start.status_code, 200, start.data)
         with mock.patch("apps.ai.providers.is_configured", return_value=True), \
              mock.patch("apps.ai.providers.provider_name", return_value="openai"), \
              mock.patch("apps.ai.providers.chat_json", return_value=QUESTION_PAYLOAD):
-            start = self.client.post(self.url, {"position": "QA"}, format="json")
-        with mock.patch("apps.ai.providers.is_configured", return_value=True), \
-             mock.patch("apps.ai.providers.provider_name", return_value="openai"), \
-             mock.patch("apps.ai.providers.chat_json", return_value=QUESTION_PAYLOAD):
-            InterviewSession.objects.filter(student=self.student).update(
-                total_questions=5
-            )
-            detail = self.client.get(f"/api/interviews/{start.data['id']}/")
+            detail = self.client.get(f"/api/interviews/{self.session_obj.id}/")
+        self.assertEqual(detail.status_code, 200)
         self.assertNotIn(secret, str(start.data))
         self.assertNotIn(secret, str(detail.data))
-        # And the AI provider name is a safe label, not a key or URL.
-        self.assertIn("source", str(detail.data))
+        # The provider is reported as a safe label, never a key or endpoint URL.
+        self.assertNotIn("http", str(detail.data).lower())
 
     def test_timestamps_are_recorded(self):
         self.assertIsNotNone(self.session_obj.created_at)

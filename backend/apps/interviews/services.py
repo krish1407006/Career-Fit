@@ -198,7 +198,7 @@ def submit_answer(session, answer, client_token="", require_ai=False):
         return {
             "duplicate": True,
             "evaluation": evaluation,
-            "next_question": _pending_question(session),
+            "next_question": _pending_content(session),
             "question_index": session.question_index,
             "total_questions": session.total_questions,
             "completed": not session.is_resumable,
@@ -228,7 +228,7 @@ def submit_answer(session, answer, client_token="", require_ai=False):
         return {
             "duplicate": True,
             "evaluation": _evaluation_payload(existing) if existing else {},
-            "next_question": _pending_question(session),
+            "next_question": _pending_content(session),
             "question_index": session.question_index,
             "total_questions": session.total_questions,
             "completed": not session.is_resumable,
@@ -386,10 +386,34 @@ def _pending_question(session):
     return None
 
 
+def _pending_content(session):
+    """Text of the question the student still owes an answer to (or "")."""
+    turn = _pending_question(session)
+    return turn.content if turn is not None else ""
+
+
 def _evaluation_payload(evaluation):
-    """Public evaluation shape: structured fields only, no provider payload."""
+    """Public evaluation shape: structured fields only, no provider payload.
+
+    Accepts either a raw evaluation dict or a stored evaluation turn (used when
+    replaying a duplicate submission).
+    """
     if not evaluation:
         return {}
+    if isinstance(evaluation, InterviewTurn):
+        stored = evaluation.evaluation or {}
+        return {
+            "score": evaluation.score if evaluation.score is not None else stored.get("score"),
+            "technical_correctness": stored.get("technical_correctness", ""),
+            "relevance": stored.get("relevance", ""),
+            "clarity": stored.get("clarity", ""),
+            "completeness": stored.get("completeness", ""),
+            "strengths": stored.get("strengths") or [],
+            "improvements": stored.get("improvements") or [],
+            "feedback": evaluation.feedback or evaluation.content or "",
+            "source": evaluation.source or "",
+            "notice": stored.get("notice", ""),
+        }
     return {
         "score": evaluation.get("score"),
         "technical_correctness": evaluation.get("technical_correctness", ""),
@@ -402,3 +426,4 @@ def _evaluation_payload(evaluation):
         "source": evaluation.get("source", ""),
         "notice": evaluation.get("notice", ""),
     }
+

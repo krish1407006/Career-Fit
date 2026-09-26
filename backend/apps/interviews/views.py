@@ -24,8 +24,8 @@ from .serializers import (
 )
 
 
-def _error(message, code, http_status):
-    return Response({"detail": message, "code": code}, status=http_status)
+def _error(message, code, status):
+    return Response({"detail": message, "code": code}, status=status)
 
 
 def _owned_session(request, pk):

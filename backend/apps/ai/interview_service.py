@@ -271,7 +271,7 @@ def build_context(user, job=None, position=""):
             user=user, analysis__status=ResumeAnalysis.Status.COMPLETED
         )
         .select_related("analysis")
-        .order_by("-created_at")
+        .order_by("-uploaded_at")
         .first()
     )
     latest = getattr(latest, "analysis", None)
