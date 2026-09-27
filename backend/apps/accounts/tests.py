@@ -24,6 +24,15 @@ RECRUITER_PAYLOAD = {
     "role": "recruiter",
 }
 
+ADMIN_PAYLOAD = {
+    "username": "root_admin",
+    "email": "root@example.com",
+    "password": "Str0ngPass!23",
+    "first_name": "Root",
+    "last_name": "Admin",
+    "role": "admin",
+}
+
 
 class AuthAPITestCase(APITestCase):
     """Shared helpers: register, login, and token/role accessors."""
@@ -59,6 +68,11 @@ class AuthAPITestCase(APITestCase):
         user = User.objects.create_user(**payload)
         RecruiterProfile.objects.create(user=user, company_name=user.username)
         return user
+
+    @staticmethod
+    def make_admin(payload=None):
+        payload = dict(ADMIN_PAYLOAD if payload is None else payload)
+        return User.objects.create_user(**payload)
 
 
 class RegistrationTests(AuthAPITestCase):
@@ -252,6 +266,280 @@ class RoleIsolationTests(AuthAPITestCase):
         self.student_auth()
         response = self.client.get("/api/auth/admin/users/")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class AdminCanUseStudentExperienceTests(AuthAPITestCase):
+    """An admin account can run the student flow, but only on its own records.
+
+    Admins need to exercise the real product (profile, resume analysis, job
+    matching, applications, quizzes, mock interview) to check it works. The
+    invariant that must not bend is ownership: everything an admin writes is
+    attributed to the admin, and nothing belonging to a real student is
+    reachable through the student endpoints.
+    """
+
+    def setUp(self):
+        self.student = self.make_student()
+        self.admin = self.make_admin()
+        self.recruiter = self.make_recruiter()
+        self.admin_auth()
+
+    def admin_auth(self):
+        tokens = self.login_tokens(ADMIN_PAYLOAD["username"], ADMIN_PAYLOAD["password"])
+        self.authenticate(tokens["access"])
+
+    def test_admin_counts_as_student_but_stays_admin(self):
+        self.assertTrue(self.admin.is_student)
+        self.assertTrue(self.admin.is_admin_role)
+        self.assertEqual(self.admin.role, User.Role.ADMIN)
+        # A recruiter is still not a student.
+        self.assertFalse(self.recruiter.is_student)
+
+    def test_admin_can_read_student_dashboard(self):
+        response = self.client.get("/api/dashboard/student/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        for section in ("resume", "profile", "jobs", "quizzes", "interviews"):
+            self.assertIn(section, response.data)
+
+    def test_admin_role_dashboard_still_wins_on_the_role_aware_endpoint(self):
+        response = self.client.get("/api/dashboard/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertIn("colleges", response.data)
+        self.assertNotIn("resume", response.data)
+
+    def test_admin_can_use_the_student_profile_endpoints(self):
+        response = self.client.get("/api/profile/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+
+        response = self.client.post(
+            "/api/profile/skills/", {"name": "Python"}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertTrue(self.admin.student_profile.skills.filter(name="Python").exists())
+        # The real student's skills are untouched.
+        self.assertFalse(self.student.student_profile.skills.exists())
+
+    def test_admin_can_edit_their_own_student_profile(self):
+        response = self.client.put(
+            "/api/auth/me/",
+            {"profile": {"full_name": "Test Admin", "college": "Test College"}},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertTrue(self.admin.is_admin_role)
+        self.assertEqual(self.admin.student_profile.full_name, "Test Admin")
+
+    def test_admin_applications_are_their_own_not_a_students(self):
+        from apps.jobs.models import Job
+
+        job = Job.objects.create(
+            recruiter=self.recruiter, company_name="Acme", title="SDE",
+            description="Build things", location="Remote",
+        )
+        response = self.client.post(f"/api/jobs/{job.id}/apply/", {}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+        mine = self.client.get("/api/applications/mine/")
+        self.assertEqual(mine.status_code, status.HTTP_200_OK, mine.data)
+        self.assertEqual(len(mine.data), 1)
+        self.assertEqual(mine.data[0]["id"], response.data["id"])
+
+        # And the student still has none of their own.
+        self.student_auth()
+        theirs = self.client.get("/api/applications/mine/")
+        self.assertEqual(theirs.status_code, status.HTTP_200_OK, theirs.data)
+        self.assertEqual(theirs.data, [])
+
+    def test_admin_cannot_read_a_students_resume_through_student_endpoints(self):
+        from apps.resumes.models import Resume
+
+        resume = Resume.objects.create(
+            user=self.student, original_name="jane.pdf", file="resumes/student/jane.pdf"
+        )
+        response = self.client.get(f"/api/resumes/{resume.id}/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND, response.data)
+
+    def test_recruiter_still_cannot_use_student_endpoints(self):
+        tokens = self.login_tokens(RECRUITER_PAYLOAD["username"], RECRUITER_PAYLOAD["password"])
+        self.authenticate(tokens["access"])
+        for url in ("/api/dashboard/student/", "/api/applications/mine/", "/api/profile/"):
+            response = self.client.get(url)
+            self.assertEqual(
+                response.status_code, status.HTTP_403_FORBIDDEN,
+                f"{url} should stay closed to recruiters",
+            )
+
+
+class AdminInspectionEndpointTests(AuthAPITestCase):
+    """Admins can read every student's records; students and recruiters cannot.
+
+    These endpoints exist so an admin can confirm the platform is recording
+    what it should. They are strictly read-only: there is no POST/PATCH/DELETE.
+    """
+
+    def setUp(self):
+        self.student = self.make_student()
+        self.admin = self.make_admin()
+        self.recruiter = self.make_recruiter()
+        self.other = self.make_student({
+            "username": "ryan_student", "email": "ryan@example.com",
+            "password": "Str0ngPass!23", "first_name": "Ryan", "last_name": "Reed",
+            "role": "student",
+        })
+        self.authenticate(
+            self.login_tokens(ADMIN_PAYLOAD["username"], ADMIN_PAYLOAD["password"])["access"]
+        )
+
+    INSPECTION_URLS = [
+        "/api/resumes/admin/",
+        "/api/admin/applications/",
+        "/api/interviews/admin/",
+    ]
+
+    def test_inspection_lists_are_read_only(self):
+        for url in self.INSPECTION_URLS:
+            for method in ("post", "put", "patch", "delete"):
+                response = getattr(self.client, method)(url, {}, format="json")
+                self.assertEqual(
+                    response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED,
+                    f"{method.upper()} {url} must not be allowed",
+                )
+
+    def test_student_and_recruiter_are_refused(self):
+        for payload, who in ((STUDENT_PAYLOAD, "student"), (RECRUITER_PAYLOAD, "recruiter")):
+            self.authenticate(self.login_tokens(payload["username"], payload["password"])["access"])
+            for url in self.INSPECTION_URLS:
+                response = self.client.get(url)
+                self.assertEqual(
+                    response.status_code, status.HTTP_403_FORBIDDEN,
+                    f"{who} must not read {url}",
+                )
+        self.authenticate(
+            self.login_tokens(ADMIN_PAYLOAD["username"], ADMIN_PAYLOAD["password"])["access"]
+        )
+
+    def test_resume_list_names_every_owner(self):
+        from apps.resumes.models import Resume
+
+        Resume.objects.create(
+            user=self.student, original_name="jane.pdf", file="resumes/a/jane.pdf"
+        )
+        Resume.objects.create(
+            user=self.other, original_name="ryan.pdf", file="resumes/b/ryan.pdf"
+        )
+        response = self.client.get("/api/resumes/admin/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(len(response.data), 2)
+        self.assertEqual(
+            {row["student_username"] for row in response.data},
+            {self.student.username, self.other.username},
+        )
+
+    def test_resume_list_filters_by_student(self):
+        from apps.resumes.models import Resume
+
+        Resume.objects.create(
+            user=self.student, original_name="jane.pdf", file="resumes/a/jane.pdf"
+        )
+        Resume.objects.create(
+            user=self.other, original_name="ryan.pdf", file="resumes/b/ryan.pdf"
+        )
+        response = self.client.get(f"/api/resumes/admin/?student={self.other.id}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual([row["student_username"] for row in response.data],
+                         [self.other.username])
+
+    def test_admin_can_read_a_students_resume_analysis(self):
+        from apps.resumes.models import Resume, ResumeAnalysis
+
+        resume = Resume.objects.create(
+            user=self.student, original_name="jane.pdf", file="resumes/a/jane.pdf"
+        )
+        ResumeAnalysis.objects.create(resume=resume, status=ResumeAnalysis.Status.COMPLETED,
+                                      skills=["Python"], score=72)
+        response = self.client.get(f"/api/resumes/admin/{resume.id}/analysis/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["score"], 72)
+        self.assertEqual(response.data["skills"], ["Python"])
+
+    def test_admin_resume_analysis_404_when_none_stored(self):
+        from apps.resumes.models import Resume
+
+        resume = Resume.objects.create(
+            user=self.student, original_name="jane.pdf", file="resumes/a/jane.pdf"
+        )
+        response = self.client.get(f"/api/resumes/admin/{resume.id}/analysis/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND, response.data)
+
+    def test_application_list_names_student_and_job(self):
+        from apps.jobs.models import Job, JobApplication
+
+        job = Job.objects.create(
+            recruiter=self.recruiter, company_name="Acme", title="SDE",
+            description="Build things", location="Remote",
+        )
+        JobApplication.objects.create(student=self.student, job=job, match_score=64)
+        response = self.client.get("/api/admin/applications/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(len(response.data), 1)
+        row = response.data[0]
+        self.assertEqual(row["student_username"], self.student.username)
+        self.assertEqual(row["job_title"], "SDE")
+        self.assertEqual(row["match_score"], 64)
+
+    def test_interview_list_reports_answers_and_report_score(self):
+        from apps.interviews.models import InterviewSession, InterviewTurn
+
+        finished = InterviewSession.objects.create(
+            student=self.student, position="SDE", status=InterviewSession.Status.COMPLETED,
+            report_data={"score": 8},
+        )
+        for index in range(3):
+            InterviewTurn.objects.create(
+                session=finished, role=InterviewTurn.Role.USER,
+                kind=InterviewTurn.Kind.ANSWER, content=f"answer {index}",
+            )
+        InterviewSession.objects.create(
+            student=self.other, position="Data Analyst",
+            status=InterviewSession.Status.IN_PROGRESS,
+        )
+
+        response = self.client.get("/api/interviews/admin/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(len(response.data), 2)
+        by_id = {row["id"]: row for row in response.data}
+        self.assertEqual(by_id[finished.id]["answers"], 3)
+        self.assertEqual(by_id[finished.id]["report_score"], 8)
+        self.assertTrue(by_id[finished.id]["has_report"])
+
+    def test_interview_list_filters_by_status(self):
+        from apps.interviews.models import InterviewSession
+
+        InterviewSession.objects.create(
+            student=self.student, position="SDE", status=InterviewSession.Status.COMPLETED,
+        )
+        InterviewSession.objects.create(
+            student=self.student, position="SDE", status=InterviewSession.Status.IN_PROGRESS,
+        )
+        response = self.client.get("/api/interviews/admin/?status=completed")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["status"], "completed")
+
+    def test_quiz_attempt_list_names_the_student(self):
+        from apps.assessments.models import Question, Quiz, QuizAttempt
+
+        quiz = Quiz.objects.create(title="Python basics")
+        Question.objects.create(quiz=quiz, text="2 + 2?", options=["3", "4"], correct_index=1)
+        QuizAttempt.objects.create(
+            student=self.student, quiz=quiz, status=QuizAttempt.Status.COMPLETED,
+            score_percent=80, correct_count=4, total=5, submitted_at="2026-01-01T00:00:00Z",
+        )
+        response = self.client.get("/api/quiz-attempts/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["student_username"], self.student.username)
+        self.assertTrue(response.data[0]["passed"])
 
 
 class LogoutTests(AuthAPITestCase):

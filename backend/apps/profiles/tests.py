@@ -110,14 +110,29 @@ class ProfileAPITests(ProfileAPITestCase):
         self.assertEqual(response.data["profile"]["bio"], "CS undergrad")
         self.assertEqual(response.data["profile"]["preferred_roles"], ["SDE"])
 
-    def test_recruiter_and_admin_cannot_access_student_profile(self):
+    def test_recruiter_cannot_access_the_student_profile(self):
         self.login(self.recruiter)
         response = self.client.get("/api/profile/")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_admin_profile_is_their_own_not_a_students(self):
+        """Admins may use the student screens, but only ever on their own record.
+
+        The endpoint stays caller-scoped: an admin gets their own (empty)
+        profile, never the student they are inspecting.
+        """
         self.login(self.admin)
         response = self.client.get("/api/profile/")
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["profile"]["full_name"], "")
+        self.assertEqual(response.data["education"], [])
+
+        # The other student's profile was not leaked or altered.
+        student_profile = StudentProfile.objects.get(user=self.student)
+        self.assertEqual(student_profile.full_name, "Jane Doe")
+        self.assertFalse(
+            StudentProfile.objects.filter(user=self.admin, full_name="Jane Doe").exists()
+        )
 
     def test_unauthenticated_access_denied(self):
         response = self.client.get("/api/profile/")
