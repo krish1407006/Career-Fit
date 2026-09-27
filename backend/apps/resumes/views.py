@@ -103,6 +103,10 @@ class ResumeDownloadView(APIView):
     def _can_access(resume, user):
         if resume.user_id == user.id:
             return True
+        if user.is_admin_role:
+            # Admins verify the upload and download path end to end, which means
+            # opening the very file a student uploaded.
+            return True
         if user.is_recruiter:
             return JobApplication.objects.filter(
                 student=resume.user_id, job__recruiter=user, resume=resume
