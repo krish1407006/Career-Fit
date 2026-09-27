@@ -39,6 +39,13 @@ def check(label, condition, extra=""):
         print(f"  FAIL  {label} {extra}")
 
 
+def purge():
+    """Remove anything a previous run left behind, newest first."""
+    for user in User.objects.filter(username__endswith=SUFFIX):
+        user.delete()
+    Job.objects.filter(company_name="Check Co").delete()
+
+
 def client_for(username, role):
     user = User.objects.create_user(
         username=username, email=f"{username}@check.local", password=PASSWORD, role=role
@@ -53,6 +60,7 @@ def client_for(username, role):
 
 
 def main():
+    purge()
     admin, admin_c = client_for(ADMIN, User.Role.ADMIN)
     student, student_c = client_for(STUDENT, User.Role.STUDENT)
     other, _ = client_for(OTHER, User.Role.STUDENT)
@@ -185,11 +193,12 @@ def main():
         check(f"{label} blocked from the other dashboard", r.status_code == 403, r.status_code)
 
     print(f"\n{ok} passed, {fail} failed")
-
-    for user in (admin, student, other, recruiter):
-        user.delete()
     return 1 if fail else 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        code = main()
+    finally:
+        purge()
+    raise SystemExit(code)
