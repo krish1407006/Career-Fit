@@ -56,7 +56,12 @@ class SuperAdminEmailSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         # Removing the final entry would leave nobody able to manage the list.
+        # A Django superuser can always get back in another way, so only the
+        # managers who depend on the list are actually locked out by this.
         if self.instance and not attrs.get("is_active", True):
+            request = self.context.get("request")
+            if request is not None and getattr(request.user, "is_superuser", False):
+                return attrs
             remaining = SuperAdminEmail.objects.filter(is_active=True).exclude(
                 pk=self.instance.pk
             )

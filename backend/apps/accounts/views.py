@@ -162,6 +162,27 @@ class AdminUserListView(generics.ListAPIView):
             .all().order_by("-created_at")
 
 
+def ensure_manager_on_list(user):
+    """Make sure the person managing the list is themselves on it.
+
+    Without this the list can be empty, which makes the "cannot remove the last
+    entry" rule block the very first revoke, and the owner's own admin access
+    would rest on a flag the list knows nothing about.
+    """
+    email = (getattr(user, "email", "") or "").strip().lower()
+    if not email:
+        return None
+    existing = SuperAdminEmail.objects.filter(email=email).first()
+    if existing:
+        if not existing.is_active:
+            existing.is_active = True
+            existing.save(update_fields=["is_active"])
+        return existing
+    return SuperAdminEmail.objects.create(
+        email=email, added_by=user, note="List owner", is_active=True
+    )
+
+
 def revoke_super_email_access(email):
     """Demote accounts that were promoted purely because of this address.
 
@@ -192,6 +213,7 @@ class SuperAdminEmailListView(APIView):
                                                 context={"request": request})
         serializer.is_valid(raise_exception=True)
         entry = serializer.save(added_by=request.user)
+        ensure_manager_on_list(request.user)
         return Response(SuperAdminEmailSerializer(
             entry, context={"request": request}
         ).data, status=status.HTTP_201_CREATED)
@@ -242,11 +264,28 @@ class MyEmailView(APIView):
         serializer = MyAccountEmailSerializer(request.user, data=request.data,
                                               partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        old_email = (request.user.email or "").strip().lower()
+        user = serializer.save()
+        new_email = (user.email or "").strip().lower()
+
+        # The list is matched on email, so an owner who corrects their own
+        # address has to take their entry with them or they immediately lose
+        # the ability to manage the list.
+        if old_email and new_email and old_email != new_email:
+            moved = SuperAdminEmail.objects.filter(email=old_email).first()
+            clash = SuperAdminEmail.objects.filter(email=new_email).first()
+            if moved and not clash:
+                moved.email = new_email
+                moved.save(update_fields=["email"])
+            elif moved and clash:
+                # New address is already a super email, so the old row is
+                # redundant; retire it rather than leaving a stale grant.
+                moved.delete()
+
         return Response(
-            {"email": serializer.data["email"],
-             "detail": "Email updated. Sign out and back in for it to take effect "
-                       "if it was not already a super email."}
+            {"email": user.email,
+             "detail": "Email updated. If this address is on the super email list, "
+                       "your admin access follows it."}
         )
 
 
