@@ -30,7 +30,9 @@ export default function Layout() {
               Recruiter
             </NavLink>
           )}
-          {user?.role === 'student' && (
+          {/* Admins get the student area too, so they can exercise the real
+              student flow on their own account. */}
+          {(user?.role === 'student' || user?.is_admin_role) && (
             <NavLink to="/student" className={navLink}>
               Student
             </NavLink>

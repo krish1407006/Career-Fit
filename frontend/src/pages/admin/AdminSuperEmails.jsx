@@ -37,7 +37,10 @@ export default function AdminSuperEmails() {
     load()
   }, [load])
 
-  if (user && user.role !== 'admin') {
+  // is_admin_role, not the role string: a super email or a Django superuser
+  // has admin access without `role` necessarily reading "admin". This matches
+  // the guard on the accounts screen.
+  if (user && !user.is_admin_role) {
     return (
       <section className="empty-state">
         <h2>Admins only</h2>

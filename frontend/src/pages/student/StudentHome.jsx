@@ -7,7 +7,7 @@ import StatusBadge from '../../components/jobs/StatusBadge'
 import { useAuth } from '../../context/AuthContext'
 
 export default function StudentHome() {
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
 
@@ -25,7 +25,8 @@ export default function StudentHome() {
     <div className="page dashboard">
       <h1>Student Dashboard</h1>
       <p className="muted">
-        Welcome, {profile?.full_name || 'student'}. Track your placement preparation here.
+        Welcome, {profile?.full_name || user?.username || 'student'}. Track your
+        placement preparation here.
       </p>
       {error && <div className="alert error">{error}</div>}
       {data && (

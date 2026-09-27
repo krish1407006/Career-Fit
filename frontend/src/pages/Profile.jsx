@@ -15,7 +15,9 @@ export default function Profile() {
 
   if (!user) return null
 
-  const isStudent = user.role === 'student'
+  // Admins hold a student profile of their own (see the admin student-area
+  // links), so they edit the same form a student does, not a company one.
+  const isStudent = user.role === 'student' || user.is_admin_role
 
   const submit = async (e) => {
     e.preventDefault()

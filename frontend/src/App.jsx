@@ -15,6 +15,10 @@ import AdminArea from './pages/admin/AdminArea'
 import AdminQuizzes from './pages/admin/AdminQuizzes'
 import AdminAccounts from './pages/admin/AdminAccounts'
 import AdminSuperEmails from './pages/admin/AdminSuperEmails'
+import AdminResumes from './pages/admin/AdminResumes'
+import AdminApplications from './pages/admin/AdminApplications'
+import AdminInterviews from './pages/admin/AdminInterviews'
+import AdminAttempts from './pages/admin/AdminAttempts'
 import StudentLayout from './pages/student/StudentLayout'
 import StudentHome from './pages/student/StudentHome'
 import StudentProfile from './pages/student/StudentProfile'
@@ -93,14 +97,18 @@ function AppRoutes() {
           }
         >
         <Route index element={<AdminArea />} />
-        <Route path="quizzes" element={<AdminQuizzes />} />
         <Route path="accounts" element={<AdminAccounts />} />
+        <Route path="quizzes" element={<AdminQuizzes />} />
+        <Route path="resumes" element={<AdminResumes />} />
+        <Route path="applications" element={<AdminApplications />} />
+        <Route path="attempts" element={<AdminAttempts />} />
+        <Route path="interviews" element={<AdminInterviews />} />
         <Route path="super-emails" element={<AdminSuperEmails />} />
         </Route>
         <Route
           path="/student"
           element={
-            <RequireRole roles={['student']}>
+            <RequireRole roles={['student', 'admin']}>
               <StudentLayout />
             </RequireRole>
           }
