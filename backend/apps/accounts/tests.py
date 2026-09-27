@@ -341,14 +341,14 @@ class AdminCanUseStudentExperienceTests(AuthAPITestCase):
 
         mine = self.client.get("/api/applications/mine/")
         self.assertEqual(mine.status_code, status.HTTP_200_OK, mine.data)
-        self.assertEqual(len(mine.data), 1)
-        self.assertEqual(mine.data[0]["id"], response.data["id"])
+        self.assertEqual(len(mine.data["results"]), 1)
+        self.assertEqual(mine.data["results"][0]["id"], response.data["id"])
 
         # And the student still has none of their own.
         self.student_auth()
         theirs = self.client.get("/api/applications/mine/")
         self.assertEqual(theirs.status_code, status.HTTP_200_OK, theirs.data)
-        self.assertEqual(theirs.data, [])
+        self.assertEqual(theirs.data["results"], [])
 
     def test_admin_cannot_read_a_students_resume_through_student_endpoints(self):
         from apps.resumes.models import Resume
@@ -434,7 +434,6 @@ class AdminInspectionEndpointTests(AuthAPITestCase):
             {row["student_username"] for row in response.data},
             {self.student.username, self.other.username},
         )
-
     def test_resume_list_filters_by_student(self):
         from apps.resumes.models import Resume
 
@@ -456,11 +455,11 @@ class AdminInspectionEndpointTests(AuthAPITestCase):
             user=self.student, original_name="jane.pdf", file="resumes/a/jane.pdf"
         )
         ResumeAnalysis.objects.create(resume=resume, status=ResumeAnalysis.Status.COMPLETED,
-                                      skills=["Python"], score=72)
+                                      detected_skills=["Python"], score=72)
         response = self.client.get(f"/api/resumes/admin/{resume.id}/analysis/")
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         self.assertEqual(response.data["score"], 72)
-        self.assertEqual(response.data["skills"], ["Python"])
+        self.assertEqual(response.data["detected_skills"], ["Python"])
 
     def test_admin_resume_analysis_404_when_none_stored(self):
         from apps.resumes.models import Resume
@@ -481,8 +480,8 @@ class AdminInspectionEndpointTests(AuthAPITestCase):
         JobApplication.objects.create(student=self.student, job=job, match_score=64)
         response = self.client.get("/api/admin/applications/")
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
-        self.assertEqual(len(response.data), 1)
-        row = response.data[0]
+        self.assertEqual(len(response.data["results"]), 1)
+        row = response.data["results"][0]
         self.assertEqual(row["student_username"], self.student.username)
         self.assertEqual(row["job_title"], "SDE")
         self.assertEqual(row["match_score"], 64)
