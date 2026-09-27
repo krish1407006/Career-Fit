@@ -191,3 +191,55 @@ class ResumeAnalysisDetailView(APIView):
         if analysis is None:
             return Response({"detail": "Analysis not found."}, status=status.HTTP_404_NOT_FOUND)
         return Response(ResumeAnalysisSerializer(analysis).data)
+
+
+# ---------------------------------------------------------------------------
+# Admin inspection
+# ---------------------------------------------------------------------------
+class AdminResumeListView(APIView):
+    """GET /api/resumes/admin/ -> every uploaded resume, with its analysis.
+
+    Read only, and only for checking that the upload and analysis paths really
+    recorded what they should. A student's resume stays theirs to change.
+    ``?student=<id>`` narrows the list to one account.
+    """
+
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        resumes = Resume.objects.select_related("user", "analysis").all()
+        student_id = request.query_params.get("student")
+        if student_id:
+            try:
+                resumes = resumes.filter(user_id=int(student_id))
+            except (TypeError, ValueError):
+                return Response({"detail": "student must be an account id."},
+                                status=status.HTTP_400_BAD_REQUEST)
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            resumes = resumes.filter(status=status_filter)
+        return Response(
+            AdminResumeSerializer(resumes, many=True, context={"request": request}).data
+        )
+
+
+class AdminResumeAnalysisView(APIView):
+    """GET /api/resumes/admin/<pk>/analysis/ -> any student's stored analysis.
+
+    Mirrors the owner-only endpoint above so the admin screen can show exactly
+    what the student sees, rather than a separately shaped summary.
+    """
+
+    permission_classes = [IsAdminRole]
+
+    def get(self, request, pk):
+        analysis = (
+            ResumeAnalysis.objects
+            .select_related("resume__user")
+            .filter(resume__pk=pk)
+            .first()
+        )
+        if analysis is None:
+            return Response({"detail": "No analysis stored for this resume."},
+                            status=status.HTTP_404_NOT_FOUND)
+        return Response(ResumeAnalysisSerializer(analysis).data)

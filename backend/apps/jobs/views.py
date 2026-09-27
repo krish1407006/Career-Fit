@@ -6,12 +6,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.permissions import IsRecruiter, IsStudent
+from apps.accounts.permissions import IsAdminRole, IsRecruiter, IsStudent
 from apps.resumes.models import Resume, ResumeAnalysis
 
 from .models import Job, JobApplication, Skill
 from .matching import match_job_to_student, skill_gap
 from .serializers import (
+    AdminApplicationSerializer,
     ApplicantSummary,
     JobApplicationSerializer,
     JobCreateUpdateSerializer,
@@ -308,6 +309,36 @@ class MyApplicationsView(generics.ListAPIView):
     def get_queryset(self):
         return (JobApplication.objects.filter(student=self.request.user)
                 .select_related("job", "resume"))
+
+
+class AdminApplicationListView(generics.ListAPIView):
+    """Every application on the platform, for the admin inspection screen.
+
+    Read only. Status changes stay with the recruiter who owns the job (and with
+    admins on that job's screen) so there is one code path for a status write.
+    Optional filters: ``?student=<id>``, ``?job=<id>``, ``?status=<value>``.
+    """
+
+    serializer_class = AdminApplicationSerializer
+    permission_classes = [IsAdminRole]
+
+    def get_queryset(self):
+        qs = (
+            JobApplication.objects
+            .select_related("student", "student__student_profile", "job", "job__recruiter", "resume")
+            .order_by("-applied_at")
+        )
+        for param, field in (("student", "student_id"), ("job", "job_id")):
+            value = self.request.query_params.get(param)
+            if value:
+                try:
+                    qs = qs.filter(**{field: int(value)})
+                except (TypeError, ValueError):
+                    return qs.none()
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        return qs
 
 
 class RecruiterApplicationsView(generics.ListAPIView):

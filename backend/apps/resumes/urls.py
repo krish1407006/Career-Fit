@@ -1,6 +1,8 @@
 from django.urls import path
 
 from .views import (
+    AdminResumeAnalysisView,
+    AdminResumeListView,
     ResumeAnalysisView,
     ResumeAnalyzeView,
     ResumeDetailView,
@@ -11,6 +13,10 @@ from .views import (
 app_name = "resumes"
 
 urlpatterns = [
+    # Declared before "<int:pk>/" so "admin" is never parsed as a resume id.
+    path("admin/", AdminResumeListView.as_view(), name="resume-admin-list"),
+    path("admin/<int:pk>/analysis/", AdminResumeAnalysisView.as_view(),
+         name="resume-admin-analysis"),
     path("", ResumeListCreateView.as_view(), name="resume-list"),
     path("<int:pk>/", ResumeDetailView.as_view(), name="resume-detail"),
     path("<int:pk>/download/", ResumeDownloadView.as_view(), name="resume-download"),

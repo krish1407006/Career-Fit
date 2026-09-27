@@ -219,3 +219,42 @@ class RecruiterApplicationSerializer(ApplicantSummary):
     job_title = serializers.CharField(source="job.title", read_only=True)
     company = serializers.CharField(source="job.company_name", read_only=True)
     job_type = serializers.CharField(source="job.job_type", read_only=True)
+    location = serializers.CharField(source="job.location", read_only=True)
+
+
+class AdminApplicationSerializer(serializers.ModelSerializer):
+    """Application row for the admin inspection screen.
+
+    Deliberately flatter than ``ApplicantSummary``: it names the student and the
+    job and nothing else, so one table answers "did every student's application
+    get recorded with the right status and match score".
+    """
+
+    student_id = serializers.IntegerField(source="student.id", read_only=True)
+    student_username = serializers.CharField(source="student.username", read_only=True)
+    student_email = serializers.EmailField(source="student.email", read_only=True)
+    student_name = serializers.SerializerMethodField()
+    student_role = serializers.CharField(source="student.role", read_only=True)
+    job_id = serializers.IntegerField(source="job.id", read_only=True)
+    job_title = serializers.CharField(source="job.title", read_only=True)
+    company = serializers.CharField(source="job.company_name", read_only=True)
+    recruiter_username = serializers.CharField(source="job.recruiter.username", read_only=True)
+    resume_name = serializers.CharField(
+        source="resume.original_name", read_only=True, default=None
+    )
+
+    class Meta:
+        model = JobApplication
+        fields = [
+            "id", "student_id", "student_username", "student_email", "student_name",
+            "student_role", "job_id", "job_title", "company", "recruiter_username",
+            "status", "match_score", "cover_note", "remarks", "resume_name",
+            "applied_at", "updated_at",
+        ]
+
+    def get_student_name(self, obj):
+        profile = getattr(obj.student, "student_profile", None)
+        if profile and profile.full_name:
+            return profile.full_name
+        name = f"{obj.student.first_name} {obj.student.last_name}".strip()
+        return name or obj.student.username
