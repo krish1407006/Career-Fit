@@ -47,6 +47,23 @@ class ResumeSerializer(serializers.ModelSerializer):
         return request.build_absolute_uri(path) if request else path
 
 
+class AdminResumeSerializer(ResumeSerializer):
+    """A resume row on the admin inspection screen.
+
+    Adds the owner so an admin can tell whose upload (and whose analysis) they
+    are looking at without cross-referencing another screen.
+    """
+
+    student_id = serializers.IntegerField(source="user.id", read_only=True)
+    student_username = serializers.CharField(source="user.username", read_only=True)
+    student_email = serializers.EmailField(source="user.email", read_only=True)
+
+    class Meta(ResumeSerializer.Meta):
+        fields = ResumeSerializer.Meta.fields + [
+            "student_id", "student_username", "student_email",
+        ]
+
+
 class ResumeUploadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Resume

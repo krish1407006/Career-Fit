@@ -114,8 +114,6 @@ class MeView(generics.RetrieveUpdateAPIView):
         return self.request.user
 
     def get_serializer_class(self):
-        if self.request.user.is_admin_role:
-            return UserSerializer
         if self.request.user.is_student:
             return StudentProfileDetailSerializer
         if self.request.user.is_recruiter:
@@ -124,18 +122,20 @@ class MeView(generics.RetrieveUpdateAPIView):
 
     def get(self, request, *args, **kwargs):
         instance = self.get_object()
-        if instance.is_admin_role:
-            data = {"user": UserSerializer(instance).data}
-        elif instance.is_student:
-            data = StudentProfileDetailSerializer(instance).data
-        elif instance.is_recruiter:
-            data = RecruiterProfileDetailSerializer(instance).data
-        else:
-            data = {"user": UserSerializer(instance).data}
-        return Response(data)
+        # is_student is checked before is_admin_role because it is also true for
+        # admins, who hold a student profile of their own. The payload keeps the
+        # "user" key, so the client keeps its role flags either way.
+        if instance.is_student:
+            return Response(StudentProfileDetailSerializer(instance).data)
+        if instance.is_recruiter:
+            return Response(RecruiterProfileDetailSerializer(instance).data)
+        return Response({"user": UserSerializer(instance).data})
 
     def put(self, request, *args, **kwargs):
         instance = self.get_object()
+        # is_student is checked first because it is also true for admins, who now
+        # hold a student profile of their own. Without this an admin editing
+        # /profile would be told they have no editable profile at all.
         if instance.is_student:
             serializer = StudentProfileDetailSerializer(instance, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
@@ -145,7 +145,7 @@ class MeView(generics.RetrieveUpdateAPIView):
             serializer.is_valid(raise_exception=True)
             serializer.update(instance, serializer.validated_data)
         else:
-            return Response({"detail": "Admin accounts have no editable profile."},
+            return Response({"detail": "This account has no editable profile."},
                             status=status.HTTP_400_BAD_REQUEST)
         return self.get(request, *args, **kwargs)
 

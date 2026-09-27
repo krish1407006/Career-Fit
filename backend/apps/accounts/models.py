@@ -27,7 +27,18 @@ class User(AbstractUser):
 
     @property
     def is_student(self):
-        return self.role == self.Role.STUDENT
+        """True when this account may use the student experience.
+
+        Admins are included deliberately: they need to run the real student
+        flow (profile, resume analysis, job matching, applications, quizzes,
+        mock interview) to confirm the product works end to end. Because every
+        student endpoint scopes its data to ``request.user``, an admin can only
+        ever create and read records owned by their own account.
+
+        Reading *other* students' records is a separate, explicit capability
+        granted by the ``IsAdminRole`` inspection endpoints.
+        """
+        return self.role == self.Role.STUDENT or self.is_admin_role
 
     @property
     def is_recruiter(self):
