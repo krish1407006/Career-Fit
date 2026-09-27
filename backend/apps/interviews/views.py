@@ -5,16 +5,18 @@ id is never trusted for authorisation, and an AI failure is converted into a
 fixed, student-safe message by :mod:`apps.interviews.services`.
 """
 
+from django.db.models import Count, Q
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.permissions import IsStudent
+from apps.accounts.permissions import IsAdminRole, IsStudent
 
 from . import services
-from .models import InterviewSession
+from .models import InterviewSession, InterviewTurn
 from .serializers import (
+    AdminInterviewSessionSerializer,
     AnswerSerializer,
     CompleteInterviewSerializer,
     InterviewReportSerializer,
@@ -240,3 +242,33 @@ class InterviewReportView(APIView):
             **report,
         }
         return Response(InterviewReportSerializer(payload).data)
+
+
+# ---------------------------------------------------------------------------
+# Admin inspection
+# ---------------------------------------------------------------------------
+class AdminInterviewListView(APIView):
+    """GET /api/interviews/admin/ -> every mock interview session.
+
+    Read only. ``/api/interviews/<id>/`` already lets an admin read any
+    transcript, so this list only has to say who ran what and how it went.
+    Optional filters: ``?student=<id>``, ``?status=<value>``.
+    """
+
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        sessions = InterviewSession.objects.select_related("student", "job").annotate(
+            answer_count=Count("turns", filter=Q(turns__kind=InterviewTurn.Kind.ANSWER))
+        )
+        student_id = request.query_params.get("student")
+        if student_id:
+            try:
+                sessions = sessions.filter(student_id=int(student_id))
+            except (TypeError, ValueError):
+                return Response({"detail": "student must be an account id."},
+                                status=status.HTTP_400_BAD_REQUEST)
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            sessions = sessions.filter(status=status_filter)
+        return Response(AdminInterviewSessionSerializer(sessions, many=True).data)

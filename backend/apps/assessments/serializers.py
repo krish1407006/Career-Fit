@@ -158,17 +158,28 @@ class QuestionResultSerializer(serializers.Serializer):
 
 
 class QuizAttemptSerializer(serializers.ModelSerializer):
-    """History row for a student's attempts."""
+    """History row for a student's attempts.
+
+    The student fields are what let the same payload back both the student's own
+    history and the admin screen, which lists every account's attempts.
+    """
 
     quiz_title = serializers.CharField(source="quiz.title", read_only=True)
     quiz_category = serializers.CharField(source="quiz.category", read_only=True)
     quiz_difficulty = serializers.CharField(source="quiz.difficulty", read_only=True)
+    student_id = serializers.IntegerField(source="student.id", read_only=True)
+    student_username = serializers.CharField(source="student.username", read_only=True)
+    passed = serializers.SerializerMethodField()
 
     class Meta:
         model = QuizAttempt
         fields = ["id", "quiz", "quiz_title", "quiz_category", "quiz_difficulty",
-                  "status", "correct_count", "incorrect_count", "total",
-                  "score_percent", "started_at", "submitted_at"]
+                  "student_id", "student_username", "status", "correct_count",
+                  "incorrect_count", "total", "score_percent", "passed",
+                  "started_at", "submitted_at"]
+
+    def get_passed(self, obj):
+        return obj.status == QuizAttempt.Status.COMPLETED and obj.score_percent >= PASS_THRESHOLD
 
 
 class QuizAttemptDetailSerializer(serializers.ModelSerializer):
@@ -177,6 +188,8 @@ class QuizAttemptDetailSerializer(serializers.ModelSerializer):
     quiz_title = serializers.CharField(source="quiz.title", read_only=True)
     quiz_category = serializers.CharField(source="quiz.category", read_only=True)
     quiz_difficulty = serializers.CharField(source="quiz.difficulty", read_only=True)
+    student_id = serializers.IntegerField(source="student.id", read_only=True)
+    student_username = serializers.CharField(source="student.username", read_only=True)
     passed = serializers.SerializerMethodField()
     score_percent = serializers.SerializerMethodField()
     per_question = serializers.SerializerMethodField()
@@ -184,9 +197,9 @@ class QuizAttemptDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuizAttempt
         fields = ["id", "quiz", "quiz_title", "quiz_category", "quiz_difficulty",
-                  "status", "correct_count", "incorrect_count", "total",
-                  "score_percent", "passed", "started_at", "submitted_at",
-                  "per_question"]
+                  "student_id", "student_username", "status", "correct_count",
+                  "incorrect_count", "total", "score_percent", "passed",
+                  "started_at", "submitted_at", "per_question"]
 
     def get_passed(self, obj):
         return obj.status == QuizAttempt.Status.COMPLETED and obj.score_percent >= PASS_THRESHOLD

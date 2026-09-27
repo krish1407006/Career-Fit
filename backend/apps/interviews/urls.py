@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     ActiveInterviewView,
+    AdminInterviewListView,
     InterviewAnswerView,
     InterviewCancelView,
     InterviewCompleteView,
@@ -14,6 +15,9 @@ from .views import (
 app_name = "interviews"
 
 urlpatterns = [
+    # The admin-wide list lives under its own path so /api/interviews/ stays
+    # scoped to the caller, exactly as the student client expects.
+    path("interviews/admin/", AdminInterviewListView.as_view(), name="interview-admin-list"),
     path("interviews/start/", InterviewStartView.as_view(), name="interview-start"),
     # Phase 7: /mine/ is kept for backwards compatibility with Phase 1-6 clients.
     path("interviews/mine/", MyInterviewsView.as_view(), name="my-interviews"),

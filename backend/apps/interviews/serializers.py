@@ -57,6 +57,40 @@ class InterviewSessionDetailSerializer(InterviewSessionListSerializer):
         }
 
 
+class AdminInterviewSessionSerializer(serializers.ModelSerializer):
+    """Session row for the admin inspection screen.
+
+    ``answers`` is read from the ``answer_count`` annotation rather than the
+    model's ``answered_count`` property: the property is shadowed by the
+    annotation on the instance only if it is named differently, and using the
+    property here would run one COUNT query per row.
+    """
+
+    student_username = serializers.CharField(source="student.username", read_only=True)
+    student_email = serializers.EmailField(source="student.email", read_only=True)
+    answers = serializers.IntegerField(source="answer_count", read_only=True)
+    job_title = serializers.CharField(source="job.title", read_only=True, default=None)
+    report_score = serializers.SerializerMethodField()
+    has_report = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InterviewSession
+        fields = [
+            "id", "student", "student_username", "student_email", "position",
+            "job", "job_title", "status", "mode", "state", "question_index",
+            "total_questions", "answers", "report_score", "has_report",
+            "last_error", "created_at", "started_at", "completed_at",
+        ]
+        read_only_fields = fields
+
+    def get_report_score(self, obj):
+        score = (obj.report_data or {}).get("score")
+        return score if isinstance(score, int) else None
+
+    def get_has_report(self, obj):
+        return bool(obj.report_data)
+
+
 class StartInterviewSerializer(serializers.Serializer):
     position = serializers.CharField(max_length=150, allow_blank=False)
     total_questions = serializers.IntegerField(min_value=1, max_value=10, default=5)
