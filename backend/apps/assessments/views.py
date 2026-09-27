@@ -384,13 +384,32 @@ class QuizSubmitByAttemptView(QuizSubmitView):
 
 
 class MyAttemptsView(APIView):
+    """GET /api/quiz-attempts/ - the caller's own attempts.
+
+    An admin gets every account's attempts here, which is what the admin
+    attempts screen reads. Admins may narrow the list with ``?student=<id>``,
+    ``?quiz=<id>`` or ``?status=<value>``; a student is always scoped to their
+    own rows and those filters are ignored for them.
+    """
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         if request.user.is_admin_role:
-            attempts = QuizAttempt.objects.all()
+            attempts = QuizAttempt.objects.select_related("quiz", "student").all()
+            for param, field in (("student", "student_id"), ("quiz", "quiz_id")):
+                value = request.query_params.get(param)
+                if value:
+                    try:
+                        attempts = attempts.filter(**{field: int(value)})
+                    except (TypeError, ValueError):
+                        return Response({"detail": f"{param} must be an id."},
+                                        status=status.HTTP_400_BAD_REQUEST)
+            status_filter = request.query_params.get("status")
+            if status_filter:
+                attempts = attempts.filter(status=status_filter)
         else:
-            attempts = QuizAttempt.objects.filter(student=request.user)
+            attempts = QuizAttempt.objects.select_related("quiz").filter(student=request.user)
         return Response(QuizAttemptSerializer(attempts, many=True).data)
 
 
@@ -401,7 +420,7 @@ class QuizAttemptDetailView(APIView):
 
     def get(self, request, pk):
         if request.user.is_admin_role:
-            attempt = QuizAttempt.objects.select_related("quiz").filter(pk=pk).first()
+            attempt = QuizAttempt.objects.select_related("quiz", "student").filter(pk=pk).first()
         else:
             attempt = QuizAttempt.objects.select_related("quiz").filter(
                 pk=pk, student=request.user).first()
