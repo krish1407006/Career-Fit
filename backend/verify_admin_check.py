@@ -26,6 +26,9 @@ RECRUITER = f"checker_hr{SUFFIX}"
 ADMIN = f"checker_admin{SUFFIX}"
 PASSWORD = "Check@12345"
 
+# The dev database already holds real rows, so every assertion below is scoped
+# to the records this script creates instead of counting the whole table.
+
 ok = fail = 0
 
 
@@ -72,7 +75,8 @@ def main():
     )
     application = JobApplication.objects.create(student=student, job=job, match_score=71)
     resume = Resume.objects.create(
-        user=student, original_name="check.pdf", file=f"resumes/{student.id}/check.pdf"
+        user=student, original_name="check.pdf",
+        file=ContentFile(b"%PDF-1.4 not a real pdf", name="check.pdf"),
     )
     ResumeAnalysis.objects.create(
         resume=resume, status=ResumeAnalysis.Status.COMPLETED,
