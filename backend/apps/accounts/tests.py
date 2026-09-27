@@ -288,6 +288,14 @@ class AdminCanUseStudentExperienceTests(AuthAPITestCase):
         tokens = self.login_tokens(ADMIN_PAYLOAD["username"], ADMIN_PAYLOAD["password"])
         self.authenticate(tokens["access"])
 
+    def student_auth(self):
+        tokens = self.login_tokens(STUDENT_PAYLOAD["username"], STUDENT_PAYLOAD["password"])
+        self.authenticate(tokens["access"])
+
+    def recruiter_auth(self):
+        tokens = self.login_tokens(RECRUITER_PAYLOAD["username"], RECRUITER_PAYLOAD["password"])
+        self.authenticate(tokens["access"])
+
     def test_admin_counts_as_student_but_stays_admin(self):
         self.assertTrue(self.admin.is_student)
         self.assertTrue(self.admin.is_admin_role)
@@ -360,8 +368,7 @@ class AdminCanUseStudentExperienceTests(AuthAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND, response.data)
 
     def test_recruiter_still_cannot_use_student_endpoints(self):
-        tokens = self.login_tokens(RECRUITER_PAYLOAD["username"], RECRUITER_PAYLOAD["password"])
-        self.authenticate(tokens["access"])
+        self.recruiter_auth()
         for url in ("/api/dashboard/student/", "/api/applications/mine/", "/api/profile/"):
             response = self.client.get(url)
             self.assertEqual(
