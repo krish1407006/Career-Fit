@@ -441,6 +441,23 @@ class AdminInspectionEndpointTests(AuthAPITestCase):
             {row["student_username"] for row in response.data},
             {self.student.username, self.other.username},
         )
+
+    def test_a_bad_filter_id_is_a_400_not_a_silent_empty_list(self):
+        """A typo in a filter should be reported, not read as "no records"."""
+        cases = (
+            ("/api/resumes/admin/", "student"),
+            ("/api/admin/applications/", "student"),
+            ("/api/admin/applications/", "job"),
+            ("/api/quiz-attempts/", "student"),
+            ("/api/quiz-attempts/", "quiz"),
+        )
+        for url, param in cases:
+            response = self.client.get(f"{url}?{param}=not-an-id")
+            self.assertEqual(
+                response.status_code, status.HTTP_400_BAD_REQUEST,
+                f"{url}?{param}=not-an-id should be a 400, got {response.data}",
+            )
+
     def test_resume_list_filters_by_student(self):
         from apps.resumes.models import Resume
 

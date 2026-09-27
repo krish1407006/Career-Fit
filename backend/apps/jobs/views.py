@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Count, OuterRef
 from rest_framework import generics, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -334,7 +335,10 @@ class AdminApplicationListView(generics.ListAPIView):
                 try:
                     qs = qs.filter(**{field: int(value)})
                 except (TypeError, ValueError):
-                    return qs.none()
+                    # Same as the resume and attempt screens: a bad id is a
+                    # mistake worth reporting, not an empty list that looks
+                    # like the student has no records.
+                    raise ValidationError({param: "Must be an id."})
         status_filter = self.request.query_params.get("status")
         if status_filter:
             qs = qs.filter(status=status_filter)

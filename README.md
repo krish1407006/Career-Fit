@@ -14,7 +14,32 @@ Full-stack placement preparation platform for B.Tech final year project.
 
 - **student** — profile, resume AI analysis, skill-gap, job matching, applications, quizzes, AI mock interview, dashboard
 - **recruiter** — company profile, post/manage jobs, review candidates, update application status
-- **admin** — manage users, jobs, applications, quizzes
+- **admin** — every student feature on their own account, plus read-only inspection of all student data
+
+### Admin capabilities
+
+An admin is not impersonating anyone. `User.is_student` is a *capability* flag that
+is true for the `student` role **and** for admins, so the admin passes the same
+`IsStudent` permission the student pages use. `User.role` stays `admin`, so
+`/api/dashboard/` and `RequireRole` still land the admin on the admin area.
+
+- **Full student writes.** The admin dashboard links into the student area
+  (profile, resume upload + AI analysis, job matching, apply, quizzes, mock
+  interview). Everything an admin does there is written against their own
+  account, which exercises the real write paths a student uses. The admin's own
+  rows then show up in the inspection screens below, labelled with their
+  username.
+- **Read-only inspection.** Separate screens list every student's resumes, AI
+  analyses, applications, quiz attempts and interview transcripts. They are
+  `ListAPIView`s: `POST`/`PUT`/`PATCH`/`DELETE` return 405, so an inspection
+  screen can never mutate another student's record.
+- **Admins are not students.** `?student=`, `?quiz=` and `?status=` filters on
+  the inspection endpoints are ignored for non-admins rather than honoured, and
+  a student asking for `/api/admin/applications/` gets a 403. A recruiter
+  calling `/api/quiz-attempts/` still only ever sees their own (empty) list.
+- **Ownership still applies to writes.** An admin applying to a job creates an
+  application owned by the admin, exactly as a student would.
+
 
 ## Project layout
 
@@ -135,6 +160,25 @@ submission idempotent so a retried request is never double-scored.
 | POST | `/api/interviews/<id>/complete/` | Finish early and build the report |
 | POST | `/api/interviews/<id>/cancel/` | Discard the interview |
 | GET | `/api/interviews/<id>/report/` | Final report, 409 while still running |
+
+#### Admin inspection endpoints
+
+All of these require an admin and are read only.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| GET | `/api/resumes/admin/` | Every resume, with its analysis inlined; `?student=` and `?status=` |
+| GET | `/api/resumes/admin/<id>/analysis/` | The full analysis for one resume |
+| GET | `/api/admin/applications/` | Every application; `?student=`, `?status=`, `?job=` |
+| GET | `/api/interviews/admin/` | Every session, with answer count and report score; `?student=`, `?status=` |
+| GET | `/api/quiz-attempts/` | Admin sees every attempt; filter with `?student=`, `?quiz=`, `?status=` |
+| GET | `/api/quiz-attempts/<id>/` | Attempt review, for any student |
+| GET | `/api/resumes/<id>/download/` | The PDF itself |
+| GET | `/api/interviews/<id>/` | Full transcript and report for any session |
+
+The resume, application, interview and attempt payloads all carry
+`student_username` / `student_id` so a screen can say whose record it is showing.
+
 
 - Only one interview may be active per student; a second start returns 409
   `interview_in_progress`.
