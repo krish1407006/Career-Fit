@@ -762,3 +762,117 @@ class SuperAdminEmailTests(AuthAPITestCase):
             self.client.get("/api/auth/admin/users/").status_code,
             status.HTTP_401_UNAUTHORIZED,
         )
+
+
+class SuperAdminEmailLockoutTests(AuthAPITestCase):
+    """Regression tests: the owner must never be able to lock themselves out."""
+
+    def setUp(self):
+        self.admin = User.objects.create_superuser(
+            username="owner", email="owner@example.com", password="Str0ngPass!23",
+        )
+        tokens = self.login_tokens("owner", "Str0ngPass!23")
+        self.authenticate(tokens["access"])
+
+    def test_adding_a_partner_also_lists_the_owner(self):
+        # The owner is a superuser, so they can reach the list without already
+        # being on it. Adding someone must not leave the list owner-less.
+        response = self.client.post(
+            "/api/auth/admin/super-emails/", {"email": "partner@example.com"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        listed = {row["email"] for row in
+                  self.client.get("/api/auth/admin/super-emails/").data["results"]}
+        self.assertEqual(listed, {"owner@example.com", "partner@example.com"})
+
+    def test_owner_can_now_revoke_the_partner(self):
+        added = self.client.post(
+            "/api/auth/admin/super-emails/", {"email": "partner@example.com"},
+            format="json",
+        ).data
+        revoked = self.client.patch(
+            f"/api/auth/admin/super-emails/{added['id']}/", {"is_active": False},
+            format="json",
+        )
+        self.assertEqual(revoked.status_code, status.HTTP_200_OK, revoked.data)
+        self.assertFalse(revoked.data["is_active"])
+
+    def test_non_superuser_manager_is_still_protected_from_lockout(self):
+        manager = User.objects.create_user(
+            username="plain_mgr", email="mgr@example.com",
+            password="Str0ngPass!23", role=User.Role.ADMIN,
+        )
+        only = SuperAdminEmail.objects.create(
+            email="mgr@example.com", added_by=manager, is_active=True
+        )
+        tokens = self.login_tokens("plain_mgr", "Str0ngPass!23")
+        self.authenticate(tokens["access"])
+        response = self.client.patch(
+            f"/api/auth/admin/super-emails/{only.id}/", {"is_active": False},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_changing_owner_email_carries_the_list_entry_along(self):
+        response = self.client.patch(
+            "/api/auth/me/email/", {"email": "founder@newdomain.com"}, format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertTrue(
+            SuperAdminEmail.objects.filter(email="founder@newdomain.com").exists(),
+            "owner lost the ability to manage the list after an email change",
+        )
+        self.assertFalse(SuperAdminEmail.objects.filter(email="owner@example.com").exists())
+
+    def test_changing_to_an_existing_super_email_retires_the_old_row(self):
+        SuperAdminEmail.objects.create(email="partner@example.com", added_by=self.admin)
+        response = self.client.patch(
+            "/api/auth/me/email/", {"email": "partner@example.com"}, format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        # Still exactly one grant, not two rows fighting over the same address.
+        self.assertEqual(SuperAdminEmail.objects.count(), 1)
+        self.assertTrue(SuperAdminEmail.objects.filter(email="partner@example.com").exists())
+
+    def test_student_changing_own_email_cannot_grant_themselves_admin(self):
+        # Otherwise /me/email/ would be a one-call self-promotion.
+        self.make_student()
+        tokens = self.login_tokens(STUDENT_PAYLOAD["username"], STUDENT_PAYLOAD["password"])
+        self.authenticate(tokens["access"])
+        response = self.client.patch(
+            "/api/auth/me/email/", {"email": "sneaky@example.com"}, format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertFalse(
+            SuperAdminEmail.objects.filter(email="sneaky@example.com").exists()
+        )
+        self.assertEqual(
+            self.client.get("/api/auth/admin/super-emails/").status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+    def test_revoked_partner_is_demoted_and_locked_out(self):
+        self.make_student()
+        student = User.objects.get(username=STUDENT_PAYLOAD["username"])
+        student.email = "partner@example.com"
+        student.save(update_fields=["email"])
+
+        # The grant has to exist before signing in for it to promote anything.
+        added = self.client.post(
+            "/api/auth/admin/super-emails/", {"email": "partner@example.com"},
+            format="json",
+        ).data
+        self.client.patch(
+            f"/api/auth/admin/super-emails/{added['id']}/", {"is_active": False},
+            format="json",
+        )
+        student.refresh_from_db()
+        self.assertEqual(student.role, User.Role.STUDENT)
+
+        tokens = self.login_tokens(STUDENT_PAYLOAD["username"], STUDENT_PAYLOAD["password"])
+        self.authenticate(tokens["access"])
+        self.assertEqual(
+            self.client.get("/api/auth/admin/users/").status_code,
+            status.HTTP_403_FORBIDDEN,
+        )

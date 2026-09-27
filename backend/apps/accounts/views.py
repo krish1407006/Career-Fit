@@ -264,14 +264,20 @@ class MyEmailView(APIView):
         serializer = MyAccountEmailSerializer(request.user, data=request.data,
                                               partial=True)
         serializer.is_valid(raise_exception=True)
+
+        # Decide authorisation BEFORE the address changes. Doing it afterwards
+        # would let any signed-in user grant themselves admin simply by calling
+        # this endpoint with their own address.
+        was_manager = super_email_grants_admin(request.user) or request.user.is_superuser
         old_email = (request.user.email or "").strip().lower()
+
         user = serializer.save()
         new_email = (user.email or "").strip().lower()
 
-        # The list is matched on email, so an owner who corrects their own
-        # address has to take their entry with them or they immediately lose
-        # the ability to manage the list.
-        if old_email and new_email and old_email != new_email:
+        # The list is matched on email, so a manager who corrects their own
+        # address has to take their entry with them or they immediately lose the
+        # ability to manage the list.
+        if was_manager and old_email and new_email and old_email != new_email:
             moved = SuperAdminEmail.objects.filter(email=old_email).first()
             clash = SuperAdminEmail.objects.filter(email=new_email).first()
             if moved and not clash:
@@ -281,6 +287,8 @@ class MyEmailView(APIView):
                 # New address is already a super email, so the old row is
                 # redundant; retire it rather than leaving a stale grant.
                 moved.delete()
+        if was_manager:
+            ensure_manager_on_list(user)
 
         return Response(
             {"email": user.email,
