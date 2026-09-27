@@ -1,12 +1,12 @@
 from django.contrib.auth import get_user_model
-from django.db.models import Count, OuterRef, Subquery
+from django.db.models import Count, OuterRef
 from rest_framework import generics, status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.permissions import IsAdminRole, IsRecruiter, IsStudent
+from apps.accounts.permissions import IsRecruiter, IsStudent
 from apps.resumes.models import Resume, ResumeAnalysis
 
 from .models import Job, JobApplication, Skill

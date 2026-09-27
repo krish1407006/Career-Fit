@@ -10,7 +10,7 @@ import logging
 from django.conf import settings
 
 from .errors import AiError
-from . import interview_service, providers, resume_analyzer
+from . import interview_service, resume_analyzer
 
 logger = logging.getLogger(__name__)
 

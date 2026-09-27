@@ -1,6 +1,5 @@
 from rest_framework import serializers
 
-from apps.accounts.models import StudentProfile
 from apps.accounts.serializers import StudentProfileSerializer
 from apps.jobs.models import Skill
 from apps.jobs.serializers import SkillSerializer
