@@ -47,6 +47,8 @@ def client_for(username, role):
         StudentProfile.objects.create(user=user, full_name="Check Student")
     client = APIClient()
     client.force_authenticate(user)
+    # APIClient defaults to host "testserver", which is not in ALLOWED_HOSTS.
+    client.defaults["HTTP_HOST"] = "127.0.0.1"
     return user, client
 
 
