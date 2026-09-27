@@ -1,4 +1,4 @@
-import glob, io
+import glob
 
 out = []
 files = glob.glob(r"D:\Career Fit\backend\apps\accounts\migrations\*.py")

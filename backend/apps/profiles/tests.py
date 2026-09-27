@@ -4,7 +4,6 @@ from rest_framework.test import APITestCase
 
 from apps.accounts.models import RecruiterProfile, StudentProfile
 from apps.jobs.models import Skill
-from apps.resumes.models import Resume
 
 User = get_user_model()
 

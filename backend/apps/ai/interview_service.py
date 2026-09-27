@@ -299,7 +299,6 @@ def _history_lines(transcript):
     lines = []
     for turn in transcript or []:
         kind = turn.get("kind") if isinstance(turn, dict) else getattr(turn, "kind", "")
-        role = turn.get("role") if isinstance(turn, dict) else getattr(turn, "role", "")
         content = turn.get("content") if isinstance(turn, dict) else getattr(turn, "content", "")
         if not content:
             continue

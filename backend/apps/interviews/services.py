@@ -214,7 +214,7 @@ def submit_answer(session, answer, client_token="", require_ai=False):
 
     try:
         with transaction.atomic():
-            answer_turn = InterviewTurn.objects.create(
+            InterviewTurn.objects.create(
                 session=session,
                 role=InterviewTurn.Role.USER,
                 kind=InterviewTurn.Kind.ANSWER,

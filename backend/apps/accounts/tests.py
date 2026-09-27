@@ -721,7 +721,7 @@ class SuperAdminEmailTests(AuthAPITestCase):
         self.assertTrue(SuperAdminEmail.objects.filter(pk=only.pk).exists())
 
     def test_plain_admin_cannot_manage_the_list(self):
-        plain = User.objects.create_user(
+        User.objects.create_user(
             username="other_admin", email="other@example.com",
             password="Str0ngPass!23", role=User.Role.ADMIN,
         )
