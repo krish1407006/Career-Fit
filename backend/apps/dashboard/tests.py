@@ -267,8 +267,10 @@ class SkillInsightTests(APITestCase):
 
         data = self.client.get(DASHBOARD).data
         gaps = {item["skill"]: item["required_by"] for item in data["skills"]["job_gaps"]}
-        self.assertEqual(gaps, {"docker": 1, "redis": 1})
-        self.assertNotIn("python", gaps)
+        # Displayed with the Skill row's own spelling, not skill_gap()'s
+        # lower-cased comparison form.
+        self.assertEqual(gaps, {"Docker": 1, "Redis": 1})
+        self.assertNotIn("Python", gaps)
         self.assertEqual(data["skills"]["job_gap_count"], 2)
 
     def test_no_applications_means_no_job_gaps(self):

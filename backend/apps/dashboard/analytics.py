@@ -23,9 +23,9 @@ else's dashboard.
 from django.db.models import Avg, Count, Q
 
 from apps.accounts.models import StudentProfile
-from apps.assessments.models import QuizAttempt
+from apps.assessments.models import Quiz, QuizAttempt
 from apps.interviews.models import InterviewSession
-from apps.jobs.matching import skill_gap
+from apps.jobs.matching import normalise, skill_gap
 from apps.jobs.models import Job, JobApplication
 from apps.jobs.views import candidate_skills_for
 from apps.profiles.utils import profile_completion
@@ -130,14 +130,25 @@ def skills_insight(student):
     jobs = list(
         Job.objects.filter(pk__in=applied_jobs).prefetch_related("required_skills")
     )
+    # skill_gap() normalises to lower case so matching compares fairly, but a
+    # dashboard should read "Kubernetes", not "kubernetes". Map each normalised
+    # name back to the Skill row's own spelling for display. This is
+    # presentation only -- the set of gaps is still exactly what skill_gap()
+    # decided, so the count can never disagree with the Jobs page.
+    display = {}
+    for job in jobs:
+        for skill in job.required_skills.all():
+            display.setdefault(normalise(skill.name), skill.name)
+
     frequency = {}
     for job in jobs:
         gap = skill_gap(candidate, job.required_skills.all())
         for skill in gap["missing"]:
-            frequency[skill] = frequency.get(skill, 0) + 1
+            key = display.get(skill, skill)
+            frequency[key] = frequency.get(key, 0) + 1
     job_gaps = [
         {"skill": name, "required_by": count}
-        for name, count in sorted(frequency.items(), key=lambda kv: (-kv[1], kv[0]))
+        for name, count in sorted(frequency.items(), key=lambda kv: (-kv[1], kv[0].lower()))
     ]
 
     return {
@@ -170,11 +181,11 @@ def quiz_performance(student):
         "score_percent", flat=True
     ).first()
 
+    category_labels = dict(Quiz.Category.choices)
     by_category = [
         {
-            "category": row["category"],
-            "label": dict(QuizAttempt._meta.get_field("quiz").remote_field.model._meta.get_field(
-                "category").choices).get(row["category"], row["category"]),
+            "category": row["quiz__category"],
+            "label": category_labels.get(row["quiz__category"], row["quiz__category"]),
             "attempts": row["n"],
             "average": _round(row["avg"]),
         }
