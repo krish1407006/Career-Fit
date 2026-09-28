@@ -20,7 +20,8 @@ no student id parameter, so there is no way for a caller to ask for somebody
 else's dashboard.
 """
 
-from django.db.models import Avg, Count, Q
+from django.db.models import Avg, Count, FloatField
+from django.db.models.functions import Cast, KeyTextTransform
 
 from apps.accounts.models import StudentProfile
 from apps.assessments.models import Quiz, QuizAttempt
@@ -237,7 +238,14 @@ def interview_performance(student):
     # over it would drag the mean down for a missing number rather than a low one.
     scored = completed.exclude(report_data={})
 
-    totals = scored.aggregate(avg=Avg("report_data__score"), n=Count("id"))
+    # The score lives inside the report JSON, so it is averaged in SQL rather
+    # than by loading every report into Python. KeyTextTransform yields text and
+    # the Cast makes it numeric: aggregating "report_data__score" directly makes
+    # Django run the JSONField decoder over the resulting float and raise.
+    # A session whose report has no score yields NULL, which Avg ignores.
+    totals = scored.annotate(
+        score_value=Cast(KeyTextTransform("score", "report_data"), FloatField())
+    ).aggregate(avg=Avg("score_value"), n=Count("id"))
     average = totals["avg"]
 
     recent = []
