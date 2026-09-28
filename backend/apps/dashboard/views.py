@@ -9,8 +9,6 @@ from apps.assessments.models import Quiz, QuizAttempt
 from apps.dashboard.analytics import student_analytics
 from apps.interviews.models import InterviewSession
 from apps.jobs.models import Job, JobApplication
-from apps.profiles.utils import profile_completion
-from apps.resumes.models import Resume, ResumeAnalysis
 
 
 class DashboardView(APIView):
