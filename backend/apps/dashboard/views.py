@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from apps.accounts.models import StudentProfile, User
 from apps.accounts.permissions import IsAdminRole, IsRecruiter, IsStudent
 from apps.assessments.models import Quiz, QuizAttempt
+from apps.dashboard.analytics import student_analytics
 from apps.interviews.models import InterviewSession
 from apps.jobs.models import Job, JobApplication
 from apps.profiles.utils import profile_completion
@@ -56,72 +57,41 @@ class AdminDashboardView(APIView):
 
 # ------------------------------------------------------------------
 def student_dashboard(student):
-    resume = Resume.objects.filter(user=student).first()
-    analysis = (
-        resume.analysis if resume and hasattr(resume, "analysis") else None
-    )
-    apps = JobApplication.objects.filter(student=student)
-    attempts = QuizAttempt.objects.filter(student=student)
-    interviews = InterviewSession.objects.filter(student=student)
-    profile, _ = StudentProfile.objects.get_or_create(user=student)
+    """The student's own performance dashboard (Phase 8).
 
-    recent = list(
-        apps.select_related("job", "resume")[:5].values(
-            "id", "job_id", "job__title", "job__company_name", "job__location",
-            "status", "match_score", "applied_at",
-        )
-    )
+    All of the aggregation lives in ``apps.dashboard.analytics``; this function
+    only shapes the response. The ``jobs``/``quizzes``/``interviews`` blocks are
+    thin aliases over the Phase 8 sections, kept so the pre-Phase-8 response
+    contract keeps working for existing consumers. They reuse the numbers
+    already computed above rather than re-querying, so adding the analytics did
+    not add queries.
+    """
+    data = student_analytics(student)
+    applications = data["applications"]
+    quizzes = data["quiz_performance"]
+    interviews = data["interview_performance"]
 
     return {
-        "resume": {
-            "status": resume.status if resume else "none",
-            "score": analysis.score if analysis else None,
-            "skills_count": len(analysis.skills) if analysis else 0,
-            "suggestions_count": len(analysis.suggestions) if analysis else 0,
-            "source": analysis.source if analysis else None,
-            # Phase 6 - lightweight resume-analysis snapshot (no analytics yet).
-            "uploaded": resume is not None,
-            "analysis_completed": bool(
-                analysis and analysis.status == ResumeAnalysis.Status.COMPLETED
-            ),
-            "analysis_status": analysis.status if analysis else None,
-            "detected_skills_count": len(analysis.detected_skills) if analysis else 0,
-            "skill_gaps_count": len(analysis.skill_gaps) if analysis else 0,
-            "strengths_count": len(analysis.strengths) if analysis else 0,
-            "improvements_count": len(analysis.improvements) if analysis else 0,
-            "recommended_roles_count": len(analysis.recommended_roles) if analysis else 0,
-        },
-        "profile": {
-            "completion": profile_completion(profile),
-            "skills_count": profile.skills.count(),
-            "projects_count": profile.projects.count(),
-            "resume_uploaded": resume is not None,
-        },
+        **data,
         "jobs": {
-            "openings": Job.objects.filter(is_active=True).count(),
-            "available_jobs": Job.objects.filter(is_active=True).count(),
-            "total_applications": apps.count(),
-            "applications": apps.count(),
-            "shortlisted": apps.filter(status=JobApplication.Status.SHORTLISTED).count(),
-            "selected": apps.filter(status=JobApplication.Status.SELECTED).count(),
-            "best_match": apps.order_by("-match_score").first().match_score if apps.exists() else None,
-            "by_status": {
-                "applied": apps.filter(status=JobApplication.Status.APPLIED).count(),
-                "shortlisted": apps.filter(status=JobApplication.Status.SHORTLISTED).count(),
-                "interview": apps.filter(status=JobApplication.Status.INTERVIEW).count(),
-                "selected": apps.filter(status=JobApplication.Status.SELECTED).count(),
-                "rejected": apps.filter(status=JobApplication.Status.REJECTED).count(),
-            },
-            "recent": recent,
+            "openings": data["overview"]["jobs_available"],
+            "available_jobs": data["overview"]["jobs_available"],
+            "total_applications": applications["total"],
+            "applications": applications["total"],
+            "best_match": applications["best_match"],
+            "by_status": applications["by_status"],
+            "recent": applications["recent"],
         },
         "quizzes": {
-            "attempts": attempts.count(),
-            "avg_score": int(attempts.filter(submitted_at__isnull=False).aggregate(a=Avg("score_percent"))["a"] or 0),
-            "passed": attempts.filter(submitted_at__isnull=False, score_percent__gte=60).count(),
+            "attempts": quizzes["attempts_completed"],
+            # None (not 0) when nothing has been submitted, so the UI can say
+            # "no attempts" instead of claiming a 0% average.
+            "avg_score": quizzes["average_score"],
+            "passed": quizzes["passed"],
         },
         "interviews": {
-            "total": interviews.count(),
-            "completed": interviews.filter(status=InterviewSession.Status.COMPLETED).count(),
+            "total": interviews["total"],
+            "completed": interviews["completed"],
         },
     }
 
