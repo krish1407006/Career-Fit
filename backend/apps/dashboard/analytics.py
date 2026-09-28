@@ -231,6 +231,11 @@ def _report_score(session):
     return value if isinstance(value, (int, float)) and not isinstance(value, bool) else None
 
 
+def _pluralized(n, noun):
+    """\"1 attempt\" / \"3 attempts\" for report strings."""
+    return f"{n} {noun}" if n == 1 else f"{n} {noun}s"
+
+
 def interview_performance(student):
     """Interview statistics from Phase 7 sessions and their stored reports."""
     sessions = InterviewSession.objects.filter(student=student)
@@ -408,7 +413,7 @@ def preparation_insights(resume, skills, quizzes, interviews, applications):
         insights.append({
             "id": "resume-gaps",
             "tone": "info",
-            "title": f"{len(resume['skill_gaps'])} skill gap(s) flagged in your resume",
+            "title": f"{_pluralized(len(resume['skill_gaps']), 'skill gap')} flagged in your resume",
             "detail": f"Your analysis flagged: {', '.join(resume['skill_gaps'][:6])}"
                       + ("." if len(resume["skill_gaps"]) <= 6 else " and more."),
             "link": "/student/profile",
@@ -440,7 +445,7 @@ def preparation_insights(resume, skills, quizzes, interviews, applications):
             "id": "weak-quiz-category",
             "tone": "info",
             "title": f"Consider practising {worst['label']}",
-            "detail": f"Your average across {worst['attempts']} {worst['label']} attempt(s) "
+            "detail": f"Your average across {_pluralized(worst['attempts'], worst['label'].lower() + ' attempt')} "
                       f"is {worst['average']:.0f}%, the lowest of your categories.",
             "link": "/student/quizzes",
             "link_label": "Browse quizzes",

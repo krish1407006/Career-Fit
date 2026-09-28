@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { apiError } from '../../api/client'
 import { fetchQuizzes, fetchQuiz, startQuiz } from '../../api/quizzes'
 import { categoryLabel } from './QuizList'
+import { plural } from '../../lib/format'
 
 export default function QuizDetails() {
   const { id } = useParams()
@@ -66,7 +67,7 @@ export default function QuizDetails() {
       {error && <div className="alert error">{error}</div>}
       <h1>{quiz.title}</h1>
       <p className="muted">
-        {categoryLabel(quiz.category)} · {quiz.difficulty} · {quiz.total_questions} questions ·{' '}
+        {categoryLabel(quiz.category)} · {quiz.difficulty} · {plural(quiz.total_questions, 'question')} ·{' '}
         {quiz.duration_minutes ? `${quiz.duration_minutes} minutes` : 'No time limit'}
       </p>
       <div className="card">

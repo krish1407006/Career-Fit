@@ -224,8 +224,8 @@ function InterviewSection({ interviews }) {
         <div className="card">
           <div className="section-head">
             <h3>Latest interview — {latest.position}</h3>
-            <span className={`score-tag ${latest.score >= 7 ? 'ok' : latest.score >= 5 ? 'warn' : 'bad'}`}>
-              {latest.score} / 10
+            <span className={`score-tag ${latest.score == null ? 'neutral' : latest.score >= 7 ? 'ok' : latest.score >= 5 ? 'warn' : 'bad'}`}>
+              {latest.score == null ? 'Not scored' : `${latest.score} / 10`}
             </span>
           </div>
           {latest.summary && <p className="summary">{latest.summary}</p>}
