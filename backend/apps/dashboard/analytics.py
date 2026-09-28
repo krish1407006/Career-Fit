@@ -21,7 +21,8 @@ else's dashboard.
 """
 
 from django.db.models import Avg, Count, FloatField
-from django.db.models.functions import Cast, KeyTextTransform
+from django.db.models.fields.json import KeyTextTransform
+from django.db.models.functions import Cast
 
 from apps.accounts.models import StudentProfile
 from apps.assessments.models import Quiz, QuizAttempt
@@ -243,9 +244,11 @@ def interview_performance(student):
     # the Cast makes it numeric: aggregating "report_data__score" directly makes
     # Django run the JSONField decoder over the resulting float and raise.
     # A session whose report has no score yields NULL, which Avg ignores.
+    # Counted on the score itself, not on the row: a session can be completed
+    # with a report that simply has no score, and that is not a scored result.
     totals = scored.annotate(
         score_value=Cast(KeyTextTransform("score", "report_data"), FloatField())
-    ).aggregate(avg=Avg("score_value"), n=Count("id"))
+    ).aggregate(avg=Avg("score_value"), n=Count("score_value"))
     average = totals["avg"]
 
     recent = []
@@ -448,7 +451,7 @@ def preparation_insights(resume, skills, quizzes, interviews, applications):
             insights.append({
                 "id": "interview-areas",
                 "tone": "info",
-                "title": "Areas to improve from your latest interview",
+                "title": "Consider reviewing the areas flagged in your latest interview",
                 "detail": ", ".join(interview["areas_to_improve"][:5]) + ".",
                 "link": "/student/interview",
                 "link_label": "Practise interview",
