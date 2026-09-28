@@ -250,7 +250,8 @@ class SkillInsightTests(APITestCase):
 
     def test_job_gaps_come_from_the_shared_matching_function(self):
         # Only Python is on the profile; the job also requires Docker and Redis.
-        self.profile.skills.add(Skill.objects.create(name="Python"))
+        python = Skill.objects.create(name="Python")
+        self.profile.skills.add(python)
         recruiter = User.objects.create_user(
             username="corp", password=PASSWORD, role=User.Role.RECRUITER,
         )
@@ -258,8 +259,7 @@ class SkillInsightTests(APITestCase):
             recruiter=recruiter, company_name="Corp", title="SDE",
             description="d", location="Remote",
         )
-        job.required_skills.add(
-            Skill.objects.create(name="Python"),
+        job.required_skills.add(python,
             Skill.objects.create(name="Docker"),
             Skill.objects.create(name="Redis"),
         )

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiError } from '../../api/client'
 import { fetchQuizzes } from '../../api/quizzes'
+import { plural } from '../../lib/format'
 
 const CATEGORY_LABELS = {
   python: 'Python',
@@ -54,7 +55,7 @@ export default function QuizList() {
                   <Link to={`/student/quizzes/${qz.id}`}>{qz.title}</Link>
                 </h3>
                 <p className="muted">
-                  {categoryLabel(qz.category)} · {qz.difficulty} · {qz.total_questions} questions ·{' '}
+                  {categoryLabel(qz.category)} · {qz.difficulty} · {plural(qz.total_questions, 'question')} ·{' '}
                   {qz.duration_minutes ? `${qz.duration_minutes} min` : 'No time limit'}
                 </p>
               </div>
