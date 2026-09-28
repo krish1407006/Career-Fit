@@ -164,7 +164,7 @@ def quiz_performance(student):
     attempts = QuizAttempt.objects.filter(student=student).select_related("quiz")
     submitted = attempts.filter(submitted_at__isnull=False, total__gt=0)
 
-    totals = submitted.aggregate(avg=Avg("score_percent"), best=Count("id"))
+    totals = submitted.aggregate(avg=Avg("score_percent"), n=Count("id"))
     average = totals["avg"]
     best = submitted.order_by("-score_percent").values_list(
         "score_percent", flat=True
@@ -199,7 +199,7 @@ def quiz_performance(student):
 
     return {
         "attempts_total": attempts.count(),
-        "attempts_completed": totals["best"] or 0,
+        "attempts_completed": totals["n"] or 0,
         "in_progress": attempts.filter(submitted_at__isnull=True).count(),
         # None, not 0: "no attempts" is not "an average of zero percent".
         "average_score": int(average) if average is not None else None,
@@ -382,13 +382,13 @@ def preparation_insights(resume, skills, quizzes, interviews, applications):
             "link_label": "Analyze resume",
         })
 
-    if resume["gaps"]:
+    if resume["skill_gaps"]:
         insights.append({
             "id": "resume-gaps",
             "tone": "info",
-            "title": f"{len(resume['gaps'])} skill gap(s) flagged in your resume",
-            "detail": f"Your analysis flagged: {', '.join(resume['gaps'][:6])}"
-                      + ("." if len(resume["gaps"]) <= 6 else " and more."),
+            "title": f"{len(resume['skill_gaps'])} skill gap(s) flagged in your resume",
+            "detail": f"Your analysis flagged: {', '.join(resume['skill_gaps'][:6])}"
+                      + ("." if len(resume["skill_gaps"]) <= 6 else " and more."),
             "link": "/student/profile",
             "link_label": "View analysis",
         })
