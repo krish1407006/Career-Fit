@@ -21,6 +21,3 @@ export const logout = async () => {
 export const fetchMe = () => client.get('/auth/me/').then(({ data }) => data)
 
 export const updateMe = (payload) => client.put('/auth/me/', payload).then(({ data }) => data)
-
-export const fetchAdminUsers = () =>
-  client.get('/auth/admin/users/').then(({ data }) => (Array.isArray(data) ? data : data.results || []))

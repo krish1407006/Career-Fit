@@ -322,6 +322,10 @@ class AdminApplicationListView(generics.ListAPIView):
 
     serializer_class = AdminApplicationSerializer
     permission_classes = [IsAdminRole]
+    # Same reason as the admin accounts list: this screen has no pager and reads
+    # rows straight into a filterable table, so default pagination would hide
+    # every application past the twentieth from search and review.
+    pagination_class = None
 
     def get_queryset(self):
         qs = (

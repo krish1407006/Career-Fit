@@ -1187,3 +1187,74 @@ class SuperAdminEmailLockoutTests(AuthAPITestCase):
             self.client.get("/api/auth/admin/users/").status_code,
             status.HTTP_403_FORBIDDEN,
         )
+
+
+class AdminListIsNotTruncatedTests(AuthAPITestCase):
+    """The admin tables return every row, not just the first page.
+
+    Both admin lists the browser renders into a filterable table with no pager
+    are unpaginated on purpose. DRF's default 20-per-page response made every
+    account and application past the twentieth disappear: the client reads the
+    ``results`` array and never follows ``next``, so those rows could not be
+    searched, selected, reviewed or deleted, and the "N of M accounts" count
+    quietly reported the page size instead of the real total.
+    """
+
+    OVER_PAGE_SIZE = 25
+
+    def setUp(self):
+        self.make_admin()
+        # bulk_create keeps this cheap: these accounts are only counted and
+        # listed, never signed into, so they need no hashed passwords.
+        User.objects.bulk_create([
+            User(username=f"student{index:02d}", email=f"student{index:02d}@example.com",
+                  role=User.Role.STUDENT)
+            for index in range(self.OVER_PAGE_SIZE)
+        ])
+        self.authenticate(
+            self.login_tokens(ADMIN_PAYLOAD["username"], ADMIN_PAYLOAD["password"])["access"]
+        )
+
+    def test_accounts_list_returns_a_bare_list_of_every_account(self):
+        response = self.client.get("/api/auth/admin/users/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        # A bare list, not the {"count", "next", "results"} envelope.
+        self.assertIsInstance(response.data, list)
+        self.assertEqual(len(response.data), User.objects.count())
+        self.assertEqual(
+            len(response.data), self.OVER_PAGE_SIZE + 1,
+            "every account must be listed, not just the first page of them",
+        )
+
+    def test_accounts_list_includes_the_oldest_account(self):
+        """The first page used to hide the accounts an admin needs least often.
+
+        Ordering is newest first, so the accounts most likely to fall off the
+        end are the ones nobody ever looks for.
+        """
+        oldest = User.objects.order_by("created_at").first()
+        response = self.client.get("/api/auth/admin/users/")
+        self.assertIn(oldest.username, {row["username"] for row in response.data})
+
+    def test_applications_list_returns_a_bare_list_of_every_application(self):
+        from apps.jobs.models import Job, JobApplication
+
+        recruiter = self.make_recruiter()
+        job = Job.objects.create(
+            recruiter=recruiter, company_name="Acme", title="Backend Engineer",
+            description="Builds things.", location="Remote",
+        )
+        students = User.objects.filter(role=User.Role.STUDENT)[: self.OVER_PAGE_SIZE]
+        JobApplication.objects.bulk_create([
+            JobApplication(student=student, job=job, match_score=50)
+            for student in students
+        ])
+
+        response = self.client.get("/api/admin/applications/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertIsInstance(response.data, list)
+        self.assertEqual(
+            len(response.data), JobApplication.objects.count(),
+            "every application must be listed, not just the first page of them",
+        )
+

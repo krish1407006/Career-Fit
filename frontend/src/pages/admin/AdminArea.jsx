@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiError } from '../../api/client'
-import { fetchAdminUsers } from '../../api/auth'
+import { fetchAdminUsers } from '../../api/accounts'
 import { fetchAdminDashboard } from '../../api/dashboard'
 import Stat from '../../components/Stat'
 

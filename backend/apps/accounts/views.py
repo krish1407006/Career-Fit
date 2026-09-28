@@ -155,6 +155,14 @@ class AdminUserListView(generics.ListAPIView):
 
     serializer_class = AdminUserSerializer
     permission_classes = [IsAdminRole]
+    # The accounts screen is a management table, not a feed: it has no pager, it
+    # filters by role in the browser, and it decides "at least one active admin
+    # must remain" from the rows it holds. Left on DRF's default 20-per-page
+    # pagination, every account past the twentieth was unreachable -- it could
+    # not be searched, selected or deleted, and the last-admin guard counted
+    # admins from a truncated list. Return the whole list, as the admin resume,
+    # interview and attempt screens already do.
+    pagination_class = None
     filterset_fields = ["role", "is_active"]
 
     def get_queryset(self):
