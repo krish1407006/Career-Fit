@@ -477,7 +477,7 @@ def student_analytics(student):
             "resume_uploaded": resume["uploaded"],
             "resume_analyzed": resume["analysis_completed"],
             "skills_count": skills["current_count"],
-            "skill_gaps_count": resume["gaps_count"],
+            "skill_gaps_count": resume["skill_gaps_count"],
             "jobs_available": Job.objects.filter(is_active=True).count(),
             "applications": applications["total"],
             "quiz_attempts": quizzes["attempts_completed"],
