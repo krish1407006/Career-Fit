@@ -504,8 +504,9 @@ class AdminInspectionEndpointTests(AuthAPITestCase):
         JobApplication.objects.create(student=self.student, job=job, match_score=64)
         response = self.client.get("/api/admin/applications/")
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
-        self.assertEqual(len(response.data["results"]), 1)
-        row = response.data["results"][0]
+        # A bare list, matching the admin resume and interview lists beside it.
+        self.assertEqual(len(response.data), 1)
+        row = response.data[0]
         self.assertEqual(row["student_username"], self.student.username)
         self.assertEqual(row["job_title"], "SDE")
         self.assertEqual(row["match_score"], 64)
