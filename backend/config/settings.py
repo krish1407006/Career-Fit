@@ -17,9 +17,27 @@ def env_bool(key, default=False):
     return os.environ.get(key, str(default)).lower() in ("1", "true", "yes", "on")
 
 
-SECRET_KEY = env("DJANGO_SECRET_KEY", "django-insecure-dev-only")
-DEBUG = env_bool("DJANGO_DEBUG", True)
-ALLOWED_HOSTS = [h for h in env("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h]
+def env_list(key, default=""):
+    return [item.strip() for item in env(key, default).split(",") if item.strip()]
+
+
+# A placeholder secret is only ever acceptable while developing locally. In
+# production it would sign sessions and JWTs for every user with a value that is
+# published in this repository, so refuse to start rather than quietly serving an
+# app protected by a known key.
+INSECURE_DEV_SECRET = "django-insecure-dev-only"
+SECRET_KEY = env("DJANGO_SECRET_KEY", INSECURE_DEV_SECRET)
+DEBUG = env_bool("DJANGO_DEBUG", False)
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
+
+if not DEBUG and SECRET_KEY == INSECURE_DEV_SECRET:
+    raise RuntimeError(
+        "DJANGO_SECRET_KEY is still the development placeholder while "
+        "DJANGO_DEBUG is off. Generate a real key, for example:\n"
+        "  python -c \"from django.core.management.utils import "
+        "get_random_secret_key as k; print(k())\"\n"
+        "and put it in backend/.env before deploying."
+    )
 
 INSTALLED_APPS = [
     "django.contrib.admin",

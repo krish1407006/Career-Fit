@@ -1,5 +1,5 @@
 from django.contrib.auth import get_user_model
-from django.db.models import Count, OuterRef
+from django.db.models import Count
 from rest_framework import generics, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
@@ -23,11 +23,6 @@ from .serializers import (
 )
 
 User = get_user_model()
-
-
-def latest_analysis_subquery():
-    latest_resume = Resume.objects.filter(user=OuterRef("pk")).order_by("-uploaded_at")
-    return ResumeAnalysis.objects.filter(resume=latest_resume[:1])[:1]
 
 
 def candidate_skills_for(user):
