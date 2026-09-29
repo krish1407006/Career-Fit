@@ -22,10 +22,27 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
-    if (!getTokens().access) return
-    refreshUser()
-      .catch(() => clearTokens())
-      .finally(() => setLoading(false))
+    if (!getTokens().access) return undefined
+    // Inlined rather than delegated to refreshUser so the state writes happen
+    // in the promise callbacks, and so a result that arrives after the
+    // provider unmounts is discarded instead of set on a dead component.
+    let active = true
+    fetchMe()
+      .then((data) => {
+        if (!active) return
+        setUser(data.user)
+        setProfile(data.profile || null)
+      })
+      .catch(() => {
+        if (!active) return
+        clearTokens()
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
   }, [])
 
   // Signing out in another tab clears the shared token storage; drop the

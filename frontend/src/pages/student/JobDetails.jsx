@@ -63,11 +63,11 @@ export default function JobDetails() {
   const [applied, setApplied] = useState(false)
 
   const load = useCallback(() => {
-    setError('')
     fetchJob(id)
       .then((data) => {
         setJob(data)
         setApplied(Boolean(data.applied))
+        setError('')
       })
       .catch((e) => setError(apiError(e, 'Could not load job')))
     fetchJobMatch(id).then(setMatch).catch(() => {})

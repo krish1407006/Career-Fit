@@ -33,17 +33,18 @@ export default function AdminAccounts() {
   const [roleFilter, setRoleFilter] = useState('all')
   const [busy, setBusy] = useState(false)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
-      setAccounts(await fetchAdminUsers())
-      setSelected([])
-    } catch (e) {
-      setError(e?.message || 'Could not load accounts')
-    } finally {
-      setLoading(false)
-    }
+  const load = useCallback(() => {
+    // `loading` starts as true and is cleared in .finally, so nothing is
+    // written synchronously here and the mount effect does not cause a second
+    // render pass.
+    fetchAdminUsers()
+      .then((rows) => {
+        setAccounts(rows)
+        setSelected([])
+        setError('')
+      })
+      .catch((e) => setError(e?.message || 'Could not load accounts'))
+      .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {

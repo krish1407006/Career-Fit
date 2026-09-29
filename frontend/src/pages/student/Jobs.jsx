@@ -22,7 +22,6 @@ export default function Jobs() {
   const [busyJob, setBusyJob] = useState(null)
 
   const load = useCallback(() => {
-    setError('')
     const params = { page, page_size: PAGE_SIZE }
     Object.entries(filters).forEach(([k, v]) => {
       if (v) params[k] = v
@@ -33,6 +32,7 @@ export default function Jobs() {
         const total = Array.isArray(data) ? data.length : data.count ?? rows.length
         setJobs(rows)
         setCount(total)
+        setError('')
       })
       .catch((e) => setError(apiError(e, 'Could not load jobs')))
   }, [page, filters])

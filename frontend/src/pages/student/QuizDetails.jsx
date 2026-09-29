@@ -14,8 +14,12 @@ export default function QuizDetails() {
   const [starting, setStarting] = useState(false)
 
   const load = useCallback(() => {
-    setError('')
-    fetchQuiz(id).then(setQuiz).catch((e) => setError(apiError(e)))
+    fetchQuiz(id)
+      .then((data) => {
+        setQuiz(data)
+        setError('')
+      })
+      .catch((e) => setError(apiError(e)))
     fetchQuizzes()
       .then((rows) => setRow(rows.find((q) => String(q.id) === String(id)) || null))
       .catch(() => {})

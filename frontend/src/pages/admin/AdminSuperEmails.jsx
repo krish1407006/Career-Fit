@@ -22,15 +22,14 @@ export default function AdminSuperEmails() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
 
-  const load = useCallback(async () => {
-    setError('')
-    try {
-      const [list, mine] = await Promise.all([fetchSuperEmails(), fetchMyEmail()])
-      setRows(list)
-      setMyEmail(mine)
-    } catch (e) {
-      setError(e?.message || 'Could not load super emails')
-    }
+  const load = useCallback(() => {
+    Promise.all([fetchSuperEmails(), fetchMyEmail()])
+      .then(([list, mine]) => {
+        setRows(list)
+        setMyEmail(mine)
+        setError('')
+      })
+      .catch((e) => setError(e?.message || 'Could not load super emails'))
   }, [])
 
   useEffect(() => {

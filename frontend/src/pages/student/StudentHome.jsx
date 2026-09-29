@@ -347,16 +347,28 @@ export default function StudentHome() {
   const [error, setError] = useState('')
   const [refreshing, setRefreshing] = useState(false)
 
+  // The mount load is the same request the Refresh button makes, so the flag is
+  // set before the call in both cases. It is kept out of the mount effect by
+  // starting as true: the page already shows a loading state until data lands,
+  // and flipping it afterwards would only cause an extra render.
   const load = () => {
     setRefreshing(true)
     fetchStudentDashboard()
-      .then(setData)
+      .then((payload) => {
+        setData(payload)
+        setError('')
+      })
       .catch((e) => setError(apiError(e, 'Could not load dashboard')))
       .finally(() => setRefreshing(false))
   }
 
   useEffect(() => {
-    load()
+    fetchStudentDashboard()
+      .then((payload) => {
+        setData(payload)
+        setError('')
+      })
+      .catch((e) => setError(apiError(e, 'Could not load dashboard')))
   }, [])
 
   if (!data && !error) {

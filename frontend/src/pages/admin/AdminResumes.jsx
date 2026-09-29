@@ -34,16 +34,14 @@ export default function AdminResumes() {
   const [analysisError, setAnalysisError] = useState('')
   const [analysisLoading, setAnalysisLoading] = useState(false)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
-      setResumes(await fetchAdminResumes())
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setLoading(false)
-    }
+  const load = useCallback(() => {
+    fetchAdminResumes()
+      .then((rows) => {
+        setResumes(rows)
+        setError('')
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {

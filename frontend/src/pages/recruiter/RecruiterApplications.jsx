@@ -22,12 +22,14 @@ export default function RecruiterApplications() {
   }
 
   const load = useCallback(() => {
-    setError('')
     const params = {}
     if (jobId) params.job_id = jobId
     if (status) params.status = status
     fetchRecruiterApplications(params)
-      .then(setApps)
+      .then((rows) => {
+        setApps(rows)
+        setError('')
+      })
       .catch((e) => setError(apiError(e, 'Could not load applications')))
   }, [jobId, status])
 

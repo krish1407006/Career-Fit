@@ -25,16 +25,14 @@ export default function AdminApplications() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('all')
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
-      setApplications(await fetchAdminApplications())
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setLoading(false)
-    }
+  const load = useCallback(() => {
+    fetchAdminApplications()
+      .then((rows) => {
+        setApplications(rows)
+        setError('')
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {

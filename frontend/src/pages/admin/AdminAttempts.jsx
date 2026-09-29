@@ -26,16 +26,14 @@ export default function AdminAttempts() {
   const [detailError, setDetailError] = useState('')
   const [detailLoading, setDetailLoading] = useState(false)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
-      setAttempts(await fetchAdminAttempts())
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setLoading(false)
-    }
+  const load = useCallback(() => {
+    fetchAdminAttempts()
+      .then((rows) => {
+        setAttempts(rows)
+        setError('')
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {

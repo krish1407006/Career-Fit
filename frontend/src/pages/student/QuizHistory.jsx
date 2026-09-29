@@ -9,8 +9,12 @@ export default function QuizHistory() {
   const [error, setError] = useState('')
 
   const load = useCallback(() => {
-    setError('')
-    fetchMyAttempts().then(setAttempts).catch((e) => setError(apiError(e)))
+    fetchMyAttempts()
+      .then((rows) => {
+        setAttempts(rows)
+        setError('')
+      })
+      .catch((e) => setError(apiError(e)))
   }, [])
 
   useEffect(() => {

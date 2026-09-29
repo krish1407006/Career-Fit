@@ -10,8 +10,15 @@ export default function QuizList() {
   const [error, setError] = useState('')
 
   const load = useCallback(() => {
-    setError('')
-    fetchQuizzes().then(setQuizzes).catch((e) => setError(apiError(e)))
+    // The error is cleared when fresh data lands rather than before the
+    // request, so the effect that loads on mount does not set state
+    // synchronously and trigger a second render pass for nothing.
+    fetchQuizzes()
+      .then((rows) => {
+        setQuizzes(rows)
+        setError('')
+      })
+      .catch((e) => setError(apiError(e)))
   }, [])
 
   useEffect(() => {

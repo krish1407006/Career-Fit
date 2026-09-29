@@ -39,16 +39,14 @@ export default function AdminInterviews() {
   const [detailError, setDetailError] = useState('')
   const [detailLoading, setDetailLoading] = useState(false)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
-      setSessions(await fetchAdminInterviews())
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setLoading(false)
-    }
+  const load = useCallback(() => {
+    fetchAdminInterviews()
+      .then((rows) => {
+        setSessions(rows)
+        setError('')
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {

@@ -89,10 +89,15 @@ export default function QuizAttempt() {
   }, [answers, data, goToResult])
 
   useEffect(() => {
-    if (timeLeft === null || !data) return
+    if (timeLeft === null || !data) return undefined
     if (timeLeft <= 0) {
-      submit()
-      return
+      // Scheduled rather than called directly: submitting writes state, and
+      // doing that synchronously inside the effect body costs an extra render
+      // pass on the single tick where the countdown lands on zero. Going
+      // through a timer also gives this effect a cleanup, so an auto-submit
+      // that has not fired yet is dropped if the page unmounts first.
+      const t = setTimeout(submit, 0)
+      return () => clearTimeout(t)
     }
     const t = setTimeout(() => setTimeLeft((v) => v - 1), 1000)
     return () => clearTimeout(t)
