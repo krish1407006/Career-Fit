@@ -1,12 +1,4 @@
-export const STATUS_LABELS = {
-  applied: 'Applied',
-  shortlisted: 'Shortlisted',
-  interview: 'Interview',
-  selected: 'Selected',
-  rejected: 'Rejected',
-  active: 'Active',
-  closed: 'Closed',
-}
+import { STATUS_LABELS } from '../../lib/labels'
 
 export default function StatusBadge({ status, label }) {
   const text = label || STATUS_LABELS[status] || status
