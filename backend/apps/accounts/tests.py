@@ -799,8 +799,12 @@ class AdminAccountManagementTests(AuthAPITestCase):
             recruiter=self.recruiter, company_name="Acme", title="SDE",
             description="Build things", location="Remote",
         )
+        second_job = Job.objects.create(
+            recruiter=self.recruiter, company_name="Acme", title="Frontend",
+            description="Build things", location="Remote",
+        )
         JobApplication.objects.create(student=self.student, job=job)
-        JobApplication.objects.create(student=self.student, job=job)
+        JobApplication.objects.create(student=self.student, job=second_job)
         InterviewSession.objects.create(student=self.student, position="SDE")
 
         response = self.client.get("/api/auth/admin/users/")
@@ -810,7 +814,7 @@ class AdminAccountManagementTests(AuthAPITestCase):
         self.assertEqual(counts["jane_student"]["applications"], 2)
         self.assertEqual(counts["jane_student"]["interviews"], 1)
         self.assertEqual(counts["jane_student"]["jobs"], 0)
-        self.assertEqual(counts["acme_hiring"]["jobs"], 1)
+        self.assertEqual(counts["acme_hiring"]["jobs"], 2)
         # An account with nothing attached must still report zeros, not errors.
         self.assertEqual(counts["boss_admin"]["applications"], 0)
 
