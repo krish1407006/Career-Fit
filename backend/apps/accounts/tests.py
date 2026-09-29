@@ -783,6 +783,38 @@ class AdminAccountManagementTests(AuthAPITestCase):
             self.client.get("/api/auth/admin/users/").status_code, status.HTTP_403_FORBIDDEN
         )
 
+    def test_related_counts_report_real_records(self):
+        """Every count must reflect the rows that deletion would actually remove.
+
+        Regression test: the applications count used to look up a related name
+        that no field defines. Django's RelatedObjectDoesNotExist subclasses
+        AttributeError, so the lookup silently produced 0 for every account and
+        the admin was told a user's applications would survive a deletion that
+        actually cascaded them.
+        """
+        from apps.interviews.models import InterviewSession
+        from apps.jobs.models import Job, JobApplication
+
+        job = Job.objects.create(
+            recruiter=self.recruiter, company_name="Acme", title="SDE",
+            description="Build things", location="Remote",
+        )
+        JobApplication.objects.create(student=self.student, job=job)
+        JobApplication.objects.create(student=self.student, job=job)
+        InterviewSession.objects.create(student=self.student, position="SDE")
+
+        response = self.client.get("/api/auth/admin/users/")
+        rows = response.data["results"] if isinstance(response.data, dict) else response.data
+        counts = {row["username"]: row["related_counts"] for row in rows}
+
+        self.assertEqual(counts["jane_student"]["applications"], 2)
+        self.assertEqual(counts["jane_student"]["interviews"], 1)
+        self.assertEqual(counts["jane_student"]["jobs"], 0)
+        self.assertEqual(counts["acme_hiring"]["jobs"], 1)
+        # An account with nothing attached must still report zeros, not errors.
+        self.assertEqual(counts["boss_admin"]["applications"], 0)
+
+
     def test_admin_can_bulk_delete_selected_accounts(self):
         ids = [self.student.id, self.recruiter.id]
         response = self.client.post(

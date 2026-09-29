@@ -143,8 +143,14 @@ class AdminUserSerializer(serializers.ModelSerializer):
         }
         # Collected here rather than by annotating the queryset so the serializer
         # stays usable for a single object too.
+        #
+        # The attribute names are the `related_name` on each foreign key, so they
+        # must not be guessed from the model name: JobApplication.student is
+        # `job_applications` (only JobApplication.job is `applications`). Django
+        # raises RelatedObjectDoesNotExist, a subclass of AttributeError, so a
+        # wrong name here silently reports 0 instead of raising.
         for attr, key in (
-            ("resumes", "resumes"), ("applications", "applications"),
+            ("resumes", "resumes"), ("job_applications", "applications"),
             ("interview_sessions", "interviews"), ("quiz_attempts", "quiz_attempts"),
         ):
             related = getattr(obj, attr, None)
