@@ -133,9 +133,19 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 20,
     "DEFAULT_RENDERER_CLASSES": (
         "rest_framework.renderers.JSONRenderer",
+    ),
+    # The browsable API is a development convenience. Left on in production it
+    # publishes a full, browsable index of every endpoint, including which
+    # filters and actions each one accepts, to anyone who reaches the API root.
+    "DEFAULT_RENDERER_CLASSES_DEBUG": (
+        "rest_framework.renderers.JSONRenderer",
         "rest_framework.renderers.BrowsableAPIRenderer",
     ),
 }
+if DEBUG:
+    REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"] = REST_FRAMEWORK.pop(
+        "DEFAULT_RENDERER_CLASSES_DEBUG"
+    )
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
