@@ -1,6 +1,16 @@
+from django.conf import settings
 from rest_framework import serializers
 
 from .models import Resume, ResumeAnalysis
+
+# Every PDF starts with this header. The specification allows a little junk in
+# front of it, so a small run of whitespace is tolerated before the check.
+PDF_MAGIC = b"%PDF-"
+PDF_MAGIC_SEARCH_WINDOW = 1024
+
+
+def _looks_like_pdf(head: bytes) -> bool:
+    return PDF_MAGIC in head[:PDF_MAGIC_SEARCH_WINDOW]
 
 
 class ResumeAnalysisSerializer(serializers.ModelSerializer):
@@ -71,11 +81,35 @@ class ResumeUploadSerializer(serializers.ModelSerializer):
         read_only_fields = ["original_name", "status", "uploaded_at"]
 
     def validate_file(self, value):
+        """Reject anything that is not really a PDF, before it reaches storage.
+
+        The extension and the browser supplied content type are both attacker
+        controlled: a file called ``resume.pdf`` can contain anything at all.
+        Without a content check such a file is stored and later streamed back
+        from the download endpoint, so the real bytes are what has to be
+        verified, not the name.
+        """
         name = (getattr(value, "name", "") or "").lower()
         if not name.endswith(".pdf"):
             raise serializers.ValidationError("Only PDF files are supported.")
-        if value.size > 10 * 1024 * 1024:
-            raise serializers.ValidationError("File size must be under 10 MB.")
+
+        max_bytes = getattr(settings, "MAX_RESUME_UPLOAD_BYTES", 10 * 1024 * 1024)
+        if value.size > max_bytes:
+            raise serializers.ValidationError(
+                f"File size must be under {max_bytes // (1024 * 1024)} MB."
+            )
+        if value.size == 0:
+            raise serializers.ValidationError("The file is empty.")
+
+        # Read the head without consuming the stream, then rewind so the
+        # analysis step still sees the file from the beginning.
+        position = value.tell()
+        head = value.read(len(PDF_MAGIC) + PDF_MAGIC_SEARCH_WINDOW)
+        value.seek(position)
+        if not _looks_like_pdf(head):
+            raise serializers.ValidationError(
+                "That file is not a PDF. Its contents do not start with a PDF header."
+            )
         return value
 
     def create(self, validated_data):

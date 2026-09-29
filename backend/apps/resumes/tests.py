@@ -95,6 +95,55 @@ class ResumeAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(Resume.objects.count(), 0)
 
+    def test_upload_rejects_a_pdf_extension_holding_other_content(self):
+        """The name and the browser's content type are both attacker controlled.
+
+        A file called resume.pdf full of HTML or shell code satisfies every
+        extension and content type check, so the real bytes are what decides.
+        """
+        self.login(self.student)
+        for label, payload in (
+            ("html", b"<html><script>alert(document.cookie)</script></html>"),
+            ("exe", b"MZ\x90\x00\x03" + b"\x00" * 64),
+            ("empty-ish", b"just some text, no header at all"),
+        ):
+            response = self.upload(
+                SimpleUploadedFile("resume.pdf", payload, content_type="application/pdf")
+            )
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, label)
+            self.assertIn("PDF header", str(response.data["file"][0]), label)
+        self.assertEqual(Resume.objects.count(), 0)
+
+    def test_upload_rejects_an_empty_file(self):
+        self.login(self.student)
+        response = self.upload(
+            SimpleUploadedFile("resume.pdf", b"", content_type="application/pdf")
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Resume.objects.count(), 0)
+
+    def test_upload_accepts_a_pdf_header_after_leading_junk(self):
+        """Some writers emit a byte or two before the header; the spec allows it."""
+        self.login(self.student)
+        response = self.upload(
+            SimpleUploadedFile("resume.pdf", b"\n\n" + PDF_BYTES, content_type="application/pdf")
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+    def test_download_is_not_served_as_active_content(self):
+        self.login(self.student)
+        self.upload(make_pdf())
+        resume = Resume.objects.first()
+        response = self.client.get(f"/api/resumes/{resume.id}/download/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response["X-Content-Type-Options"], "nosniff")
+        self.assertEqual(response["Content-Security-Policy"], "sandbox")
+        self.assertIn("no-store", response["Cache-Control"])
+        self.assertTrue(response["Content-Disposition"].startswith("attachment;"))
+        for chunk in response.streaming_content:
+            response.close()
+            break
+
     def test_upload_replaces_previous_resume(self):
         self.login(self.student)
         first = self.upload(make_pdf("first.pdf"))

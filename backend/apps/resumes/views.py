@@ -97,6 +97,12 @@ class ResumeDownloadView(APIView):
             return Response({"detail": "No file on this resume."}, status=status.HTTP_404_NOT_FOUND)
         response = FileResponse(resume.file.open("rb"), content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="{quote(resume.original_name)}"'
+        # An uploaded document must never be rendered as active content in the
+        # app's own origin: always download it, never sniff its type, and give
+        # an opener no handle on the page that served it.
+        response["X-Content-Type-Options"] = "nosniff"
+        response["Content-Security-Policy"] = "sandbox"
+        response["Cache-Control"] = "private, no-store"
         return response
 
     @staticmethod
