@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { apiError } from '../../api/client'
 import { fetchRecruiterDashboard } from '../../api/dashboard'
 import Stat from '../../components/Stat'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from '../../context/authState'
 
 export default function RecruiterHome() {
   const { user } = useAuth()

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiError } from '../../api/client'
 import { fetchMyAttempts } from '../../api/quizzes'
-import { categoryLabel } from './QuizList'
+import { categoryLabel } from '../../lib/labels'
 
 export default function QuizHistory() {
   const [attempts, setAttempts] = useState([])

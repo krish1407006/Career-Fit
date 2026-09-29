@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { apiError } from '../../api/client'
 import { fetchAttempt, fetchQuizzes } from '../../api/quizzes'
-import { categoryLabel } from './QuizList'
+import { categoryLabel } from '../../lib/labels'
 
 function ReviewRow({ r }) {
   const chosen = r.chosen_index

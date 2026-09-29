@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { clearTokens, getTokens, onTokensCleared } from '../api/client'
 import {
   fetchMe,
@@ -7,8 +7,7 @@ import {
   register as apiRegister,
   updateMe,
 } from '../api/auth'
-
-const AuthContext = createContext(null)
+import { AuthContext } from './authState'
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
@@ -80,5 +79,3 @@ export function AuthProvider({ children }) {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
-
-export const useAuth = () => useContext(AuthContext)

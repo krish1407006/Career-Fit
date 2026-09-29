@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom'
 import { apiError } from '../../api/client'
 import { fetchStudentDashboard } from '../../api/dashboard'
 import Stat from '../../components/Stat'
-import StatusBadge, { STATUS_LABELS } from '../../components/jobs/StatusBadge'
+import StatusBadge from '../../components/jobs/StatusBadge'
 import PerformanceTrendChart from '../../components/dashboard/PerformanceTrendChart'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from '../../context/authState'
 import { plural } from '../../lib/format'
+import { STATUS_LABELS } from '../../lib/labels'
 
 const STATUS_ORDER = ['applied', 'shortlisted', 'interview', 'selected', 'rejected']
 

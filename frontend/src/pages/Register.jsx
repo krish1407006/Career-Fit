@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { apiError } from '../api/client'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/authState'
 
 const initial = {
   username: '',

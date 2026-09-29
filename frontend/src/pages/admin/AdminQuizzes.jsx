@@ -6,7 +6,7 @@ import {
   fetchAdminQuizzes,
   updateAdminQuiz,
 } from '../../api/quizzes'
-import { categoryLabel } from '../student/QuizList'
+import { categoryLabel } from '../../lib/labels'
 
 const CATEGORIES = [
   'python', 'javascript', 'django', 'sql', 'dbms', 'operating_systems',

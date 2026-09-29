@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from '../../context/authState'
 import { bulkDeleteAdminUsers, fetchAdminUsers, resetAdminUserPassword, setAdminUserActive } from '../../api/accounts'
 
 const ROLE_LABEL = { admin: 'Admin', recruiter: 'Recruiter', student: 'Student' }

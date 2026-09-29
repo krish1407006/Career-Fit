@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { apiError } from '../api/client'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/authState'
 
 export default function Profile() {
   const { user, profile, updateProfile } = useAuth()

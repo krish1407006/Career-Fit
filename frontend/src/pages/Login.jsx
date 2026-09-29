@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { apiError } from '../api/client'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/authState'
 
 const roleHome = (user) => {
   if (user.is_admin_role) return '/admin'

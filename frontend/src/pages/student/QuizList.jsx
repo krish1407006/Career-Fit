@@ -3,21 +3,7 @@ import { Link } from 'react-router-dom'
 import { apiError } from '../../api/client'
 import { fetchQuizzes } from '../../api/quizzes'
 import { plural } from '../../lib/format'
-
-const CATEGORY_LABELS = {
-  python: 'Python',
-  javascript: 'JavaScript',
-  django: 'Django',
-  sql: 'SQL',
-  dbms: 'DBMS',
-  operating_systems: 'Operating Systems',
-  computer_networks: 'Computer Networks',
-  data_structures: 'Data Structures',
-  aptitude: 'Aptitude',
-  logical_reasoning: 'Logical Reasoning',
-}
-
-export const categoryLabel = (cat) => CATEGORY_LABELS[cat] || cat
+import { categoryLabel } from '../../lib/labels'
 
 export default function QuizList() {
   const [quizzes, setQuizzes] = useState([])

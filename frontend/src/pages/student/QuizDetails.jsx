@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { apiError } from '../../api/client'
 import { fetchQuizzes, fetchQuiz, startQuiz } from '../../api/quizzes'
-import { categoryLabel } from './QuizList'
 import { plural } from '../../lib/format'
+import { categoryLabel } from '../../lib/labels'
 
 export default function QuizDetails() {
   const { id } = useParams()

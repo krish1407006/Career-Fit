@@ -5,7 +5,8 @@ import {
   Routes,
   useLocation,
 } from 'react-router-dom'
-import { useAuth, AuthProvider } from './context/AuthContext'
+import { useAuth } from './context/authState'
+import { AuthProvider } from './context/AuthContext'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Profile from './pages/Profile'

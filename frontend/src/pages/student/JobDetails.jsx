@@ -4,7 +4,7 @@ import { apiError } from '../../api/client'
 import { applyToJob, fetchJob, fetchJobMatch } from '../../api/jobs'
 import SkillChips from '../../components/jobs/SkillChips'
 import StatusBadge from '../../components/jobs/StatusBadge'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from '../../context/authState'
 
 function MatchPanel({ match }) {
   if (!match) return null
