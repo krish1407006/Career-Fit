@@ -146,11 +146,49 @@ SIMPLE_JWT = {
 }
 
 if DEBUG:
+    # The dev server runs the SPA on a different port, so any origin is allowed
+    # while developing. With DEBUG off this is never reached and the explicit
+    # allow-list below is used instead.
     CORS_ALLOW_ALL_ORIGINS = True
 else:
-    CORS_ALLOWED_ORIGINS = [o for o in env("DJANGO_CORS_ALLOWED_ORIGINS", "").split(",") if o]
+    CORS_ALLOWED_ORIGINS = env_list("DJANGO_CORS_ALLOWED_ORIGINS")
 
 CORS_ALLOW_CREDENTIALS = True
+
+# ---------------------------------------------------------------------------
+# Upload limits
+# ---------------------------------------------------------------------------
+# The resume endpoint enforces its own 10 MB cap and PDF check, but Django's
+# defaults are far larger and would let a request body buffer gigabytes in
+# memory before that code ever runs. This is the outer bound.
+MAX_RESUME_UPLOAD_BYTES = 10 * 1024 * 1024
+DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_RESUME_UPLOAD_BYTES
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000
+
+# ---------------------------------------------------------------------------
+# Security hardening (only meaningful once DEBUG is off)
+# ---------------------------------------------------------------------------
+# Always on: cheap, and they cost nothing in development.
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
+X_FRAME_OPTIONS = "DENY"
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
+
+# On by default when DEBUG is off so a deployment is not silently left without
+# them. Turn DJANGO_SECURE_SSL off only when TLS terminates in front of Django
+# and forwarding headers are configured as below.
+if not DEBUG:
+    SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL", True)
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = int(env("DJANGO_SECURE_HSTS_SECONDS", "31536000"))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    # Behind a TLS-terminating proxy (nginx, a load balancer) Django must trust
+    # the proxy's X-Forwarded-* headers to see the real scheme and build correct
+    # absolute URIs.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # ---------------------------------------------------------------------------
 # External AI service configuration (consumed by apps.ai.providers)
