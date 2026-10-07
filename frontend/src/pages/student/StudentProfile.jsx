@@ -404,7 +404,7 @@ function ResumeCard({ resume, onChanged }) {
           type="file"
           accept=".pdf"
           hidden
-          onChange={(e) => handleFile(e.target.files[0])}
+          onChange={onFileChosen}
         />
         <div
           className={`dropzone ${dragOver ? 'over' : ''}`}
@@ -453,7 +453,7 @@ function ResumeCard({ resume, onChanged }) {
           type="file"
           accept=".pdf"
           hidden
-          onChange={(e) => handleFile(e.target.files[0])}
+          onChange={onFileChosen}
         />
         <div className="resume-head">
           <div>
