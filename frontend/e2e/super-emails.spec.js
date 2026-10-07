@@ -50,7 +50,7 @@ test('the grant table scrolls in place instead of widening the page', async ({ p
     await section.locator('input[type="email"]').fill(email)
     await section.getByRole('button', { name: /Add super email/ }).click()
 
-    await expect(page.locator('.app-table tbody tr')).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('.app-table tbody tr').first()).toBeVisible({ timeout: 15_000 })
 
     const measured = await measureOverflow(page)
     expect.soft(

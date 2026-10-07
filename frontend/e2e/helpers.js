@@ -77,4 +77,7 @@ export const gotoAndWait = async (page, route) => {
   await page.waitForFunction(() => !document.querySelector('.page-loading'), null, {
     timeout: 15_000,
   }).catch(() => {})
+  // Let the page's own data requests land, otherwise tables and lists are
+  // still empty when the caller measures or screenshots them.
+  await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
 }
