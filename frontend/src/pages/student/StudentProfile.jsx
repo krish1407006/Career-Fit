@@ -338,8 +338,17 @@ function ResumeCard({ resume, onChanged }) {
 
   const analysis = freshAnalysis ?? resume?.analysis ?? null
 
+  // The picker only fires `change` when its value actually changes, so the
+  // value is dropped as soon as it has been read. Otherwise a second attempt
+  // with the same file would look like a dead button.
+  const onFileChosen = (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    handleFile(file)
+  }
+
   const handleFile = async (file) => {
-    if (!file) return
+    if (!file || busy) return
     if (!file.name.toLowerCase().endsWith('.pdf')) {
       setError('Only PDF files are supported.')
       return

@@ -27,31 +27,31 @@ const clearResumes = async (request) => {
 
 const fixtureB64 = (name) => fs.readFileSync(path.join(fixturesDir, name)).toString('base64')
 
-const toFile = (name, b64, size) => `
-  const bytes = ${size ? `(() => { const b = new Uint8Array(${size}); b.set(new TextEncoder().encode('%PDF-1.4\\n')); return b })()` : `Uint8Array.from(atob('${b64}'), (c) => c.charCodeAt(0))`}
-  return new File([bytes], '${name}', { type: 'application/pdf' })
-`
-
-const fire = (page, type, fileExpr, dataTransferNeeded = true) =>
+/** Dispatches a native drag/drop event carrying a real File, as a drop would. */
+const dragEvent = (page, type, descriptor) =>
   page.evaluate(
-    ({ type, build, needsDt }) => {
-      const zone = document.querySelector('.dropzone')
-      const dt = needsDt ? new DataTransfer() : null
-      const file = needsDt ? new Function(`return (${build})`)() : null
-      if (file) dt.items.add(file)
-      zone.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt }))
+    ({ type, b64, size, name }) => {
+      const bytes = size
+        ? (() => {
+            const b = new Uint8Array(size)
+            b.set(new TextEncoder().encode('%PDF-1.4\n'))
+            return b
+          })()
+        : Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
+      const dt = new DataTransfer()
+      dt.items.add(new File([bytes], name, { type: 'application/pdf' }))
+      document
+        .querySelector('.dropzone')
+        .dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt }))
     },
-    { type, build: fileExpr, needsDt: dataTransferNeeded },
+    { type, ...descriptor },
   )
 
-const dropFixture = (page, name) =>
-  fire(page, 'drop', toFile(name, fixtureB64(name)))
+const dropFixture = (page, name) => dragEvent(page, 'drop', { name, b64: fixtureB64(name) })
 
-const dropOversized = (page, name) =>
-  fire(page, 'drop', toFile(name, '', 11 * 1024 * 1024))
+const dropOversized = (page, name) => dragEvent(page, 'drop', { name, b64: '', size: 11 * 1024 * 1024 })
 
-const dragOver = (page, name = 'probe.pdf') =>
-  fire(page, 'dragover', toFile(name, fixtureB64('valid.pdf')))
+const dragOver = (page) => dragEvent(page, 'dragover', { name: 'probe.pdf', b64: fixtureB64('valid.pdf') })
 
 const dragLeave = (page) =>
   page.evaluate(() => {
@@ -63,14 +63,16 @@ const dragLeave = (page) =>
 /** Simulates the file picker: assigns .files then fires the change event. */
 const pickFixture = (page, name) =>
   page.evaluate(
-    ({ name, build }) => {
+    ({ name, b64 }) => {
       const input = document.querySelector('input[type=file]')
       const dt = new DataTransfer()
-      dt.items.add(new Function(`return (${build})`)())
+      dt.items.add(
+        new File([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], name, { type: 'application/pdf' }),
+      )
       input.files = dt.files
       input.dispatchEvent(new Event('change', { bubbles: true }))
     },
-    { name, build: toFile(name, fixtureB64(name)) },
+    { name, b64: fixtureB64(name) },
   )
 
 const trackUploads = (page) => {
