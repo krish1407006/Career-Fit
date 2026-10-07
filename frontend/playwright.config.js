@@ -21,6 +21,11 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'off',
+    launchOptions: {
+      // CI machines have no sound card, so the microphone tests need Chrome's
+      // fake device; the fake UI accepts the permission prompt for them.
+      args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+    },
   },
   webServer: [
     {
