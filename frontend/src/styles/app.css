@@ -27,8 +27,9 @@ body {
 
 .topbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 24px;
+  gap: 8px 24px;
   padding: 12px 24px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -41,7 +42,7 @@ body {
 .brand span { color: var(--primary); }
 .center { text-align: center; }
 
-.topnav { display: flex; gap: 4px; flex: 1; }
+.topnav { display: flex; flex-wrap: wrap; gap: 4px; flex: 1 1 auto; min-width: 0; }
 .nav-link {
   color: var(--muted);
   text-decoration: none;
@@ -53,7 +54,7 @@ body {
 .nav-link:hover { background: var(--bg); color: var(--text); }
 .nav-link.active { background: #e9edff; color: var(--primary-dark); }
 
-.topbar-right { display: flex; align-items: center; gap: 12px; }
+.topbar-right { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-left: auto; }
 .topbar-user { font-size: 14px; display: flex; align-items: center; gap: 8px; }
 .role-tag {
   font-style: normal;
@@ -160,6 +161,7 @@ input:disabled { background: var(--bg); color: var(--muted); }
 /* ---------- Sub-navigation ---------- */
 .subnav {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   padding: 12px 24px 0;
   max-width: 1080px;
