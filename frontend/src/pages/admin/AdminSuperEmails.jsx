@@ -41,7 +41,7 @@ export default function AdminSuperEmails() {
   // the guard on the accounts screen.
   if (user && !user.is_admin_role) {
     return (
-      <section className="empty-state">
+      <section className="page">
         <h2>Admins only</h2>
         <p>You need admin access to manage super emails.</p>
         <Link className="btn btn-primary" to="/">Back to dashboard</Link>
@@ -137,7 +137,7 @@ export default function AdminSuperEmails() {
   const activeCount = rows.filter((row) => row.is_active).length
 
   return (
-    <div className="page-stack">
+    <div className="page">
       <header className="page-head">
         <div>
           <h1>Super emails</h1>
@@ -167,7 +167,7 @@ export default function AdminSuperEmails() {
           This is the address matched against the list. Change it here, then add the
           new address below if you want it to keep admin access.
         </p>
-        <form className="form-grid" onSubmit={onSaveMyEmail}>
+        <form className="row" onSubmit={onSaveMyEmail}>
           <label>
             Email
             <input
@@ -178,7 +178,7 @@ export default function AdminSuperEmails() {
               disabled={busy}
             />
           </label>
-          <div className="form-actions">
+          <div className="row actions">
             <button className="btn btn-primary" type="submit" disabled={busy}>
               {busy ? 'Saving...' : 'Save my email'}
             </button>
@@ -188,7 +188,7 @@ export default function AdminSuperEmails() {
 
       <section className="card">
         <h2>Grant admin to an email</h2>
-        <form className="form-grid" onSubmit={onAdd}>
+        <form className="row" onSubmit={onAdd}>
           <label>
             Email
             <input
@@ -209,7 +209,7 @@ export default function AdminSuperEmails() {
               disabled={busy}
             />
           </label>
-          <div className="form-actions">
+          <div className="row actions">
             <button className="btn btn-primary" type="submit" disabled={busy}>
               {busy ? 'Adding...' : 'Add super email'}
             </button>
@@ -222,8 +222,8 @@ export default function AdminSuperEmails() {
         {rows.length === 0 ? (
           <p className="muted">No super emails yet.</p>
         ) : (
-          <div className="table-wrap">
-            <table className="data-table">
+          <div className="app-table-wrap">
+            <table className="app-table">
               <thead>
                 <tr>
                   <th>Email</th>
