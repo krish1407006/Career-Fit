@@ -5,6 +5,7 @@ export const fetchStudentDashboard = () =>
   client.get('/dashboard/student/').then(({ data }) => data)
 export const fetchRecruiterDashboard = () =>
 
+
   
   client.get('/dashboard/recruiter/').then(({ data }) => data)
 export const fetchAdminDashboard = () =>
