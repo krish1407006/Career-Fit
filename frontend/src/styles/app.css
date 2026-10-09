@@ -381,6 +381,8 @@ input:disabled { background: var(--bg); color: var(--muted); }
 .filter-bar { display: flex; gap: 10px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
 .filter-bar .search { margin: 0; flex: 1; min-width: 200px; }
 .filter-bar select, .filter-bar input { padding: 10px 12px; }
+/* Long job titles must not stretch the selector past the viewport on phones. */
+.skill-gap-select { flex: 1 1 220px; min-width: 0; max-width: 100%; }
 
 .pagination { display: flex; align-items: center; justify-content: center; gap: 16px; margin: 16px 0 8px; }
 

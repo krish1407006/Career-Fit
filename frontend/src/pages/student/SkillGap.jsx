@@ -137,7 +137,12 @@ export default function SkillGap() {
       ) : (
         <>
           <div className="filter-bar">
-            <select value={selectedId} onChange={onSelect} aria-label="Choose a job">
+            <select
+              className="skill-gap-select"
+              value={selectedId}
+              onChange={onSelect}
+              aria-label="Choose a job"
+            >
               <option value="">Select a job…</option>
               {jobs.map((job) => (
                 <option key={job.id} value={job.id}>
