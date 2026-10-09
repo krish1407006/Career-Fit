@@ -955,6 +955,88 @@ class AdminResetPasswordTests(AuthAPITestCase):
         self.assertTrue(self.admin.check_password("Str0ngPass!23"))
 
 
+class MyPasswordChangeTests(AuthAPITestCase):
+    """Self-service password change for the signed-in user."""
+
+    URL = "/api/auth/me/password/"
+
+    def setUp(self):
+        self.student = self.make_student()
+        self.tokens = self.login_tokens(
+            STUDENT_PAYLOAD["username"], STUDENT_PAYLOAD["password"]
+        )
+        self.authenticate(self.tokens["access"])
+
+    def change(self, current, new):
+        return self.client.post(
+            self.URL,
+            {"current_password": current, "new_password": new},
+            format="json",
+        )
+
+    def test_user_can_change_password_and_log_in_with_the_new_one(self):
+        response = self.change(STUDENT_PAYLOAD["password"], "BrandNewPass!9")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.student.refresh_from_db()
+        self.assertTrue(self.student.check_password("BrandNewPass!9"))
+        self.client.credentials()
+        self.assertEqual(
+            self.login(STUDENT_PAYLOAD["username"], "BrandNewPass!9").status_code,
+            status.HTTP_200_OK,
+        )
+        self.assertEqual(
+            self.login(STUDENT_PAYLOAD["username"], STUDENT_PAYLOAD["password"]).status_code,
+            status.HTTP_401_UNAUTHORIZED,
+        )
+
+    def test_wrong_current_password_is_rejected_and_nothing_changes(self):
+        response = self.change("NotThePassword!1", "BrandNewPass!9")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("current_password", response.data)
+        self.student.refresh_from_db()
+        self.assertTrue(self.student.check_password(STUDENT_PAYLOAD["password"]))
+
+    def test_new_password_must_pass_django_validators(self):
+        response = self.change(STUDENT_PAYLOAD["password"], "short")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("new_password", response.data)
+        self.student.refresh_from_db()
+        self.assertTrue(self.student.check_password(STUDENT_PAYLOAD["password"]))
+
+    def test_numeric_new_password_is_rejected(self):
+        response = self.change(STUDENT_PAYLOAD["password"], "1234567890")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("new_password", response.data)
+
+    def test_reusing_the_current_password_is_rejected(self):
+        response = self.change(STUDENT_PAYLOAD["password"], STUDENT_PAYLOAD["password"])
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("new_password", response.data)
+
+    def test_requires_authentication(self):
+        self.client.credentials()
+        response = self.change(STUDENT_PAYLOAD["password"], "BrandNewPass!9")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_previous_refresh_token_stops_working(self):
+        refresh = self.tokens["refresh"]
+        response = self.change(STUDENT_PAYLOAD["password"], "BrandNewPass!9")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.client.credentials()
+        replay = self.client.post(
+            "/api/auth/token/refresh/", {"refresh": refresh}, format="json"
+        )
+        self.assertEqual(replay.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_recruiter_can_change_their_own_password(self):
+        self.client.credentials()
+        self.make_recruiter()
+        tokens = self.login_tokens(RECRUITER_PAYLOAD["username"], RECRUITER_PAYLOAD["password"])
+        self.authenticate(tokens["access"])
+        response = self.change(RECRUITER_PAYLOAD["password"], "RecruitPass!77")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+
+
 class SuperAdminEmailTests(AuthAPITestCase):
     """The super email list is full admin access, so it needs real guardrails."""
 
