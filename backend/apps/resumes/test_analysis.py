@@ -8,6 +8,7 @@ import tempfile
 from unittest import mock
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from rest_framework import status
@@ -568,6 +569,37 @@ class AnalysisParseErrorTests(APITestCase):
         self.assertNotIn("Traceback", response.data["detail"])
         self.assertEqual(ResumeAnalysis.objects.get(resume=self.resume).status,
                          ResumeAnalysis.Status.FAILED)
+
+
+@override_settings(
+    MEDIA_ROOT=TEMP_MEDIA, AI_PROVIDER="openai", AI_API_KEY="test-key",
+    AI_REQUIRED=True, THROTTLE_AI_RATE="2/hour",
+)
+class AiThrottleTests(APITestCase):
+    """AI-backed endpoints share a rate limit (app-level, best effort)."""
+
+    def setUp(self):
+        cache.clear()
+        self.student = make_student("throttle_student")
+        self.resume = upload_resume(self.student)
+        response = self.client.post(
+            "/api/auth/login/",
+            {"username": self.student.username, "password": PASSWORD}, format="json",
+        )
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {response.data['access']}")
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_analyze_is_throttled_after_the_limit(self):
+        with mock.patch.object(providers, "chat_json", return_value=AI_PAYLOAD):
+            first = self.client.post(f"/api/resumes/{self.resume.id}/analyze/")
+            second = self.client.post(f"/api/resumes/{self.resume.id}/analyze/")
+        self.assertEqual(first.status_code, status.HTTP_200_OK, first.data)
+        self.assertEqual(second.status_code, status.HTTP_200_OK, second.data)
+
+        third = self.client.post(f"/api/resumes/{self.resume.id}/analyze/")
+        self.assertEqual(third.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
 
 
 def tearDownModule():

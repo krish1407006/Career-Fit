@@ -1039,6 +1039,37 @@ class MyPasswordChangeTests(AuthAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
 
 
+@override_settings(THROTTLE_AUTH_RATE="2/min")
+class AuthThrottleTests(AuthAPITestCase):
+    """Credential endpoints are rate limited (app-level, best effort)."""
+
+    def setUp(self):
+        cache.clear()
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_login_is_throttled_after_the_limit(self):
+        for _ in range(2):
+            response = self.login("nobody", "wrong-password")
+            self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        throttled = self.login("nobody", "wrong-password")
+        self.assertEqual(throttled.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    def test_register_shares_the_credential_bucket(self):
+        self.login("nobody", "wrong-password")
+        self.login("nobody", "wrong-password")
+        response = self.register({**STUDENT_PAYLOAD, "username": "late_student"})
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    def test_throttling_can_be_disabled_by_blank_rate(self):
+        with override_settings(THROTTLE_AUTH_RATE=""):
+            cache.clear()
+            for _ in range(4):
+                response = self.login("nobody", "wrong-password")
+                self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
 class SuperAdminEmailTests(AuthAPITestCase):
     """The super email list is full admin access, so it needs real guardrails."""
 
