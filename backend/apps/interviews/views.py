@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAdminRole, IsStudent
+from config.throttling import AiThrottle
 
 from . import services
 from .models import InterviewSession, InterviewTurn
