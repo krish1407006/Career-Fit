@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAdminRole, IsStudent
 from apps.jobs.models import Job, JobApplication
+from config.throttling import AiThrottle
 
 from .analysis import AnalysisError, run_resume_analysis
 from .models import Resume, ResumeAnalysis
@@ -133,6 +134,7 @@ class ResumeAnalyzeView(APIView):
     """
 
     permission_classes = [IsStudent]
+    throttle_classes = [AiThrottle]
 
     def get_resume(self, pk, user):
         return Resume.objects.filter(pk=pk, user=user).first()
