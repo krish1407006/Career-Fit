@@ -5,25 +5,6 @@ const SECTIONS = [
     empty: 'No strengths detected yet.',
     variant: 'ok',
   },
-  {
-    key: 'skill_gaps',
-    title: 'Skill gaps',
-    empty: 'No obvious skill gaps found.',
-    variant: 'bad',
-  },
-  {
-    key: 'improvements',
-    title: 'Improvement suggestions',
-    empty: 'No suggestions yet.',
-    variant: 'plain',
-  },
-  {
-    key: 'recommended_roles',
-    title: 'Recommended roles',
-    empty: 'No role suggestions yet.',
-    variant: 'plain',
-  },
-]
 
 export default function ResumeAnalysisCard({ analysis }) {
   if (!analysis) return null
