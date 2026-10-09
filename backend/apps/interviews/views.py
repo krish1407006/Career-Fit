@@ -44,6 +44,7 @@ class InterviewStartView(APIView):
     """POST /api/interviews/start/ - start, or resume, a voice/text interview."""
 
     permission_classes = [IsStudent]
+    throttle_classes = [AiThrottle]
 
     def post(self, request):
         serializer = StartInterviewSerializer(data=request.data)
