@@ -24,6 +24,7 @@ from .permissions import IsAdminRole, IsSuperAdminManager, super_email_grants_ad
 
 from .models import SuperAdminEmail, User
 from .tokens import blacklist_outstanding_tokens
+from config.throttling import AuthThrottle
 
 
 class TokenObtainPairWithRoleView(TokenObtainPairView):
