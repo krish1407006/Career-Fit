@@ -1,5 +1,4 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenRefreshView
 
 from .views import (
     AdminUserBulkDeleteView,
@@ -14,6 +13,7 @@ from .views import (
     RegisterView,
     SuperAdminEmailDetailView,
     SuperAdminEmailListView,
+    ThrottledTokenRefreshView,
 )
 
 urlpatterns = [
