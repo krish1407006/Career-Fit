@@ -1,7 +1,9 @@
+from django.contrib.auth import password_validation
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import RecruiterProfile, StudentProfile, SuperAdminEmail, User
+from .tokens import blacklist_outstanding_tokens
 
 
 class LoginSerializer(TokenObtainPairSerializer):
@@ -203,6 +205,45 @@ class RegisterSerializer(serializers.ModelSerializer):
             StudentProfile.objects.create(user=user, full_name=f"{user.first_name} {user.last_name}".strip())
         elif user.role == User.Role.RECRUITER:
             RecruiterProfile.objects.create(user=user, company_name=user.username)
+        return user
+
+
+class PasswordChangeSerializer(serializers.Serializer):
+    """Self-service password change for the signed-in user.
+
+    The current password is required so a stolen access token alone cannot be
+    used to lock the real owner out of their account. The new password runs
+    through Django's configured validators (the same set registration uses), and
+    must differ from the current one. ``save`` blacklists outstanding refresh
+    tokens so other sessions stop working once the password changes.
+    """
+
+    current_password = serializers.CharField(write_only=True, trim_whitespace=False)
+    new_password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate_current_password(self, value):
+        user = self.context["request"].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Current password is incorrect.")
+        return value
+
+    def validate_new_password(self, value):
+        user = self.context["request"].user
+        password_validation.validate_password(value, user=user)
+        return value
+
+    def validate(self, attrs):
+        if attrs["current_password"] == attrs["new_password"]:
+            raise serializers.ValidationError(
+                {"new_password": "Choose a password different from the current one."}
+            )
+        return attrs
+
+    def save(self, **kwargs):
+        user = self.context["request"].user
+        user.set_password(self.validated_data["new_password"])
+        user.save(update_fields=["password"])
+        blacklist_outstanding_tokens(user)
         return user
 
 

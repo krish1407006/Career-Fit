@@ -11,6 +11,7 @@ from .serializers import (
     AdminUserSerializer,
     LoginSerializer,
     MyAccountEmailSerializer,
+    PasswordChangeSerializer,
     RecruiterProfileDetailSerializer,
     RegisterSerializer,
     StudentProfileDetailSerializer,
@@ -22,6 +23,7 @@ from .serializers import (
 from .permissions import IsAdminRole, IsSuperAdminManager, super_email_grants_admin
 
 from .models import SuperAdminEmail, User
+from .tokens import blacklist_outstanding_tokens
 
 
 class TokenObtainPairWithRoleView(TokenObtainPairView):
@@ -305,6 +307,22 @@ class MyEmailView(APIView):
         )
 
 
+class MyPasswordView(APIView):
+    """POST /api/auth/me/password/ — change the signed-in user's password.
+
+    Any authenticated role (student, recruiter, admin) can change their own
+    password. The admin reset endpoint remains for resetting *other* accounts.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = PasswordChangeSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"detail": "Password updated. Please sign in again."})
+
+
 class AdminUserResetPasswordView(APIView):
     """Admin sets a new password for an account.
 
@@ -326,16 +344,7 @@ class AdminUserResetPasswordView(APIView):
         user.is_active = True
         user.save(update_fields=["password", "is_active"])
         # Force a fresh login so the old tokens stop working.
-        try:
-            from rest_framework_simplejwt.token_blacklist.models import (
-                OutstandingToken,
-            )
-            for token in OutstandingToken.objects.filter(user=user).exclude(
-                blacklistedtoken__isnull=False
-            ):
-                token.blacklistedtoken_set.create()
-        except Exception:  # pragma: no cover - blacklist app not installed
-            pass
+        blacklist_outstanding_tokens(user)
         return Response({"detail": f"Password updated for {user.username}."})
 
 
