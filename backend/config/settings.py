@@ -147,6 +147,15 @@ if DEBUG:
         "DEFAULT_RENDERER_CLASSES_DEBUG"
     )
 
+# ---------------------------------------------------------------------------
+# Request throttling (enforced by config/throttling.py)
+# ---------------------------------------------------------------------------
+# App-level rate limits for credential and AI endpoints. Best-effort and
+# per-process: put a shared cache (Redis) and edge rate limiting in front for
+# real protection. Blank a value to disable that throttle. Override via env.
+THROTTLE_AUTH_RATE = env("THROTTLE_AUTH_RATE", "30/min")
+THROTTLE_AI_RATE = env("THROTTLE_AI_RATE", "120/hour")
+
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
