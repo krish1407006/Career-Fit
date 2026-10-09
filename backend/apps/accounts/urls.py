@@ -21,7 +21,7 @@ urlpatterns = [
     path("login/", LoginView.as_view(), name="login"),
     path("logout/", LogoutView.as_view(), name="logout"),
     path("token/", LoginView.as_view(), name="token_obtain_pair"),
-    path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("token/refresh/", ThrottledTokenRefreshView.as_view(), name="token_refresh"),
     path("me/", MeView.as_view(), name="me"),
     path("admin/users/", AdminUserListView.as_view(), name="admin_user_list"),
     path("admin/super-emails/", SuperAdminEmailListView.as_view(),
