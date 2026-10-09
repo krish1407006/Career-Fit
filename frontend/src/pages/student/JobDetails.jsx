@@ -123,6 +123,8 @@ export default function JobDetails() {
 
       <MatchPanel match={match} />
 
+      <JobResumeMatch job={job} />
+
       <div className="detail-grid">
         <div className="card">
           <h3>Description</h3>
