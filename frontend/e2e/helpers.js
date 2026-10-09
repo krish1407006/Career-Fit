@@ -26,6 +26,7 @@ export const ROUTES = {
     '/student',
     '/student/profile',
     '/student/jobs',
+    '/student/skill-gap',
     '/student/applications',
     '/student/quizzes',
     '/student/quizzes/history',

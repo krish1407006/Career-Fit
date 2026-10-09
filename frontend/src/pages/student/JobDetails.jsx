@@ -5,14 +5,14 @@ import { applyToJob, fetchJob, fetchJobMatch } from '../../api/jobs'
 import SkillChips from '../../components/jobs/SkillChips'
 import StatusBadge from '../../components/jobs/StatusBadge'
 import { useAuth } from '../../context/authState'
+import { coverageBucket } from '../../lib/skillGap'
 
 function MatchPanel({ match }) {
   if (!match) return null
-  const cls = match.score >= 70 ? 'ok' : match.score >= 40 ? 'warn' : 'bad'
   return (
     <div className="card match-panel">
       <div className="match-score">
-        <span className={`score-tag ${cls}`}>{match.coverage}% match</span>
+        <span className={`score-tag ${coverageBucket(match.score)}`}>{match.coverage}% match</span>
         <p className="muted">{match.recommendation}</p>
       </div>
       <div className="match-cols">

@@ -393,6 +393,66 @@ class SkillMatchingTests(JobAPITestCase):
         self.assertEqual(response.data["missing"], ["docker", "rest api"])
         self.assertEqual(response.data["coverage"], 66.7)
 
+    def test_skill_gap_endpoint_returns_full_payload(self):
+        """The skill-gap screen relies on this exact shape."""
+        self.login("match_student")
+        response = self.client.post("/api/skill-gap/", {"job_id": self.job.id}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(
+            response.data["job"],
+            {"id": self.job.id, "title": self.job.title, "company": self.job.company_name},
+        )
+        self.assertEqual(response.data["score"], 67)
+        self.assertEqual(
+            response.data["recommendation"],
+            "Decent fit. Fill the gaps below before interviewing.",
+        )
+        self.assertEqual(
+            set(response.data),
+            {
+                "job", "skills_required", "your_skills", "matched",
+                "missing", "coverage", "score", "recommendation",
+            },
+        )
+
+    def test_skill_gap_endpoint_requires_authentication(self):
+        response = self.client.post("/api/skill-gap/", {"job_id": self.job.id}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_skill_gap_endpoint_rejects_non_students(self):
+        self.login("dave_rec")
+        response = self.client.post("/api/skill-gap/", {"job_id": self.job.id}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_skill_gap_endpoint_missing_job_returns_404(self):
+        self.login("match_student")
+        response = self.client.post("/api/skill-gap/", {"job_id": 999999}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_skill_gap_endpoint_invalid_job_id_returns_404(self):
+        self.login("match_student")
+        for bad in ("abc", None, ""):
+            response = self.client.post("/api/skill-gap/", {"job_id": bad}, format="json")
+            self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND, bad)
+
+    def test_skill_gap_endpoint_no_required_skills_full_coverage(self):
+        empty_job = self.make_job(self.recruiter, title="No Skill Gap Job")
+        self.login("match_student")
+        response = self.client.post("/api/skill-gap/", {"job_id": empty_job.id}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["coverage"], 100.0)
+        self.assertEqual(response.data["score"], 100)
+        self.assertEqual(response.data["missing"], [])
+
+    def test_skill_gap_endpoint_student_without_skills(self):
+        self.make_student("gap_skillless")
+        self.login("gap_skillless")
+        response = self.client.post("/api/skill-gap/", {"job_id": self.job.id}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["coverage"], 0.0)
+        self.assertEqual(response.data["matched"], [])
+        self.assertEqual(len(response.data["missing"]), 6)
+
     def test_match_endpoint_rejects_non_students(self):
         self.login("dave_rec")
         response = self.client.get("/api/jobs/%d/match/" % self.job.id)

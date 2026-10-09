@@ -25,6 +25,7 @@ import StudentHome from './pages/student/StudentHome'
 import StudentProfile from './pages/student/StudentProfile'
 import Jobs from './pages/student/Jobs'
 import JobDetails from './pages/student/JobDetails'
+import SkillGap from './pages/student/SkillGap'
 import MyApplications from './pages/student/MyApplications'
 import QuizList from './pages/student/QuizList'
 import QuizDetails from './pages/student/QuizDetails'
@@ -118,6 +119,7 @@ function AppRoutes() {
           <Route path="profile" element={<StudentProfile />} />
           <Route path="jobs" element={<Jobs />} />
           <Route path="jobs/:id" element={<JobDetails />} />
+          <Route path="skill-gap" element={<SkillGap />} />
           <Route path="applications" element={<MyApplications />} />
           <Route path="quizzes" element={<QuizList />} />
           <Route path="quizzes/history" element={<QuizHistory />} />
