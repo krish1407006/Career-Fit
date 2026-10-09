@@ -126,6 +126,7 @@ class InterviewAnswerView(APIView):
     """
 
     permission_classes = [IsStudent]
+    throttle_classes = [AiThrottle]
 
     def post(self, request, pk):
         session = _owned_session(request, pk)
