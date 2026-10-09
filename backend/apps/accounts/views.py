@@ -60,6 +60,14 @@ class LoginView(TokenObtainPairWithRoleView):
     (including role) so the frontend can redirect by role immediately.
     """
 
+    throttle_classes = [AuthThrottle]
+
+
+class ThrottledTokenRefreshView(TokenRefreshView):
+    """Token refresh, rate limited alongside the other credential endpoints."""
+
+    throttle_classes = [AuthThrottle]
+
 
 class LogoutView(APIView):
     """POST /api/auth/logout/ with {refresh}.
