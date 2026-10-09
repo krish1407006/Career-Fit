@@ -441,6 +441,26 @@ class JobRelevanceTests(APITestCase):
         response = self.analyze(job_id="abc")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_closed_job_is_rejected(self):
+        self.job.is_active = False
+        self.job.save(update_fields=["is_active"])
+        response = self.analyze(job_id=self.job.id)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertFalse(
+            ResumeAnalysis.objects.filter(status=ResumeAnalysis.Status.COMPLETED).exists()
+        )
+
+    def test_general_reanalysis_clears_previous_job_relevance(self):
+        self.analyze(job_id=self.job.id)
+        analysis = ResumeAnalysis.objects.get(resume=self.resume)
+        self.assertEqual(analysis.job_relevance["job_id"], self.job.id)
+
+        response = self.analyze()
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["job_relevance"], {})
+        analysis.refresh_from_db()
+        self.assertEqual(analysis.job_relevance, {})
+
 
 @override_settings(MEDIA_ROOT=TEMP_MEDIA, AI_PROVIDER="openai", AI_API_KEY="test-key", AI_REQUIRED=True)
 class UploadCompatibilityTests(APITestCase):
