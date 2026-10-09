@@ -1,3 +1,5 @@
+import JobRelevancePanel from './JobRelevancePanel'
+
 const SECTIONS = [
   {
     key: 'strengths',
@@ -5,6 +7,25 @@ const SECTIONS = [
     empty: 'No strengths detected yet.',
     variant: 'ok',
   },
+  {
+    key: 'skill_gaps',
+    title: 'Skill gaps',
+    empty: 'No obvious skill gaps found.',
+    variant: 'bad',
+  },
+  {
+    key: 'improvements',
+    title: 'Improvement suggestions',
+    empty: 'No suggestions yet.',
+    variant: 'plain',
+  },
+  {
+    key: 'recommended_roles',
+    title: 'Recommended roles',
+    empty: 'No role suggestions yet.',
+    variant: 'plain',
+  },
+]
 
 export default function ResumeAnalysisCard({ analysis }) {
   if (!analysis) return null
@@ -67,26 +88,7 @@ export default function ResumeAnalysisCard({ analysis }) {
         </div>
       ))}
 
-      {relevance.job_id && (
-        <div className="analysis-block">
-          <h4>Job relevance — {relevance.job_title}</h4>
-          <div className="analysis-score">
-            <span className="score-big">{relevance.match_score}%</span>
-            <span className="muted small">
-              Skill match for {relevance.company_name} · {relevance.matched_skills?.length || 0}{' '}
-              of {relevance.matched_skills?.length + relevance.missing_skills?.length || 0} required
-              skills
-            </span>
-          </div>
-          {!!relevance.missing_skills?.length && (
-            <div className="chips">
-              {relevance.missing_skills.map((skill) => (
-                <span key={skill} className="chip miss-chip">{skill}</span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <JobRelevancePanel relevance={relevance} />
 
       <p className="muted small">
         Analysed {new Date(analysis.analyzed_at).toLocaleString()}
