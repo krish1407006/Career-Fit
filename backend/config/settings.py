@@ -174,6 +174,12 @@ else:
 
 CORS_ALLOW_CREDENTIALS = True
 
+# Django's CSRF protection (the admin and any session/form POSTs) only trusts
+# origins listed here, scheme included. Empty is correct for same-origin and
+# local use; set the deployed host(s) when the admin is served behind a
+# different origin or proxy.
+CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
+
 # ---------------------------------------------------------------------------
 # Upload limits
 # ---------------------------------------------------------------------------

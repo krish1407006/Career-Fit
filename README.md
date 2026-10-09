@@ -15,6 +15,7 @@ interview, with dedicated recruiter and admin workspaces.
 - [Quick start](#quick-start)
 - [Configuration](#configuration)
 - [Running the tests](#running-the-tests)
+- [Continuous integration](#continuous-integration)
 - [API reference](#api-reference)
 - [Resume analysis](#resume-analysis)
 - [Voice mock interview](#voice-mock-interview)
@@ -253,6 +254,49 @@ npm test        # node --test, speech library
 npm run lint    # oxlint
 npm run build   # production bundle
 ```
+
+### End-to-end (Playwright)
+
+Local only for now. Playwright starts both servers from
+`playwright.config.js` (it reuses them if they are already running):
+
+```powershell
+cd frontend
+npx playwright test                      # smoke, upload, responsive, super-emails, voice
+npx playwright test e2e/smoke.spec.js    # a single spec
+```
+
+The run expects a migrated PostgreSQL database seeded with the demo accounts
+(`python manage.py seed_demo` creates `student1`, `acme_recruiter`, `admin`) and
+registers its own `e2e_student`. The voice specs use Chrome's fake media device,
+so no microphone or network is required.
+
+The suite is **not** part of CI: `playwright.config.js` launches the backend with
+a Windows-only path (`.\\.venv\\Scripts\\python.exe`), and a reliable run needs a
+migrated, seeded PostgreSQL instance. Wiring that into CI would mean rewriting
+the test config and standing up a full service stack; deferred deliberately.
+
+---
+
+## Continuous integration
+
+Every push to `main` and every pull request runs `.github/workflows/ci.yml`,
+which has two required jobs:
+
+- **Backend (Django)** — installs `backend/requirements.txt`, then runs
+  `manage.py check`, `makemigrations --check --dry-run`, and the full test suite
+  against the in-memory SQLite settings.
+- **Frontend (React)** — installs from `frontend/package-lock.json` with
+  `npm ci`, then runs `npm test`, `npm run lint`, and `npm run build`.
+
+Both jobs use a read-only token, cache Python and npm dependencies, and have a
+time limit. Direct Python dependencies in `backend/requirements.txt` are pinned
+to the exact versions the suite is verified against, and npm installs from the
+committed `frontend/package-lock.json`; update either file deliberately and
+re-run the tests.
+
+The Playwright end-to-end suite is not wired into CI yet — see
+[End-to-end (Playwright)](#end-to-end-playwright).
 
 ---
 
@@ -522,7 +566,9 @@ retried request is never scored twice.
    the proxy, `SECURE_PROXY_SSL_HEADER` is already configured, so Django reads
    the real scheme correctly. Set `DJANGO_SECURE_SSL=False` only if the proxy
    already redirects HTTP to HTTPS, otherwise every plain request gets a 301.
-7. Set `DJANGO_CORS_ALLOWED_ORIGINS` to the exact frontend origin.
+7. Set `DJANGO_CORS_ALLOWED_ORIGINS` to the exact frontend origin, and
+   `DJANGO_CSRF_TRUSTED_ORIGINS` to the same origin(s) when the admin or any
+   session form is served from a different origin.
 8. Serve uploaded resumes from durable storage — they are not in the build
    output, and `MEDIA_ROOT` is `backend/media`.
 
