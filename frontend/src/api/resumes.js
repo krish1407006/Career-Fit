@@ -15,7 +15,7 @@ export const deleteResume = (id) => client.delete(`/resumes/${id}/`)
 
 // Phase 6 - AI-powered resume analysis
 export const analyzeResume = (id, jobId) =>
-  client.post(`/resumes/${id}/analyze/`, jobId ? { job_id: jobId } : {}).then(({ data }) => data)
+  client.post(`/resumes/${id}/analyze/`, analysisPayload(jobId)).then(({ data }) => data)
 
 export const fetchResumeAnalysis = (id) =>
   client.get(`/resumes/${id}/analysis/`).then(({ data }) => data)
