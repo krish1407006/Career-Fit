@@ -1,4 +1,5 @@
 import client from './client'
+import { analysisPayload } from '../lib/resumeAnalysis'
 
 export const fetchResumes = () => client.get('/resumes/').then(({ data }) => data)
 
