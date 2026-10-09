@@ -46,6 +46,9 @@ export default function Login() {
       <form className="auth-card" onSubmit={submit}>
         <h1 className="brand center">Career<span>AI</span></h1>
         <p className="muted center">Placement preparation, powered by AI.</p>
+        {location.state?.notice && (
+          <div className="alert ok">{location.state.notice}</div>
+        )}
         {error && <div className="alert error">{error}</div>}
         <label>
           Username

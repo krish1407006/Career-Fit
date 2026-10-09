@@ -1,9 +1,13 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { apiError } from '../api/client'
+import { changePassword } from '../api/auth'
+import { validatePasswordChange } from '../lib/password'
 import { useAuth } from '../context/authState'
 
 export default function Profile() {
-  const { user, profile, updateProfile } = useAuth()
+  const { user, profile, updateProfile, logout } = useAuth()
+  const navigate = useNavigate()
   const [form, setForm] = useState(
     profile || {
       full_name: '', college: '', branch: '', graduation_year: '',
@@ -12,6 +16,10 @@ export default function Profile() {
   )
   const [msg, setMsg] = useState({ type: '', text: '' })
   const [busy, setBusy] = useState(false)
+
+  const [pw, setPw] = useState({ current_password: '', new_password: '', confirm: '' })
+  const [pwMsg, setPwMsg] = useState({ type: '', text: '' })
+  const [pwBusy, setPwBusy] = useState(false)
 
   if (!user) return null
 
@@ -35,6 +43,33 @@ export default function Profile() {
 
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value })
   const rolesText = form.preferred_roles.join(', ')
+
+  const setPwField = (key) => (e) => setPw({ ...pw, [key]: e.target.value })
+
+  const submitPassword = async (e) => {
+    e.preventDefault()
+    const invalid = validatePasswordChange(pw)
+    if (invalid) {
+      setPwMsg({ type: 'error', text: invalid })
+      return
+    }
+    setPwBusy(true)
+    setPwMsg({ type: '', text: '' })
+    try {
+      await changePassword({
+        current_password: pw.current_password,
+        new_password: pw.new_password,
+      })
+      await logout()
+      navigate('/login', {
+        state: { notice: 'Password updated. Please sign in with your new password.' },
+      })
+    } catch (err) {
+      setPwMsg({ type: 'error', text: apiError(err, 'Failed to change password') })
+    } finally {
+      setPwBusy(false)
+    }
+  }
 
   return (
     <div className="page">
@@ -131,6 +166,46 @@ export default function Profile() {
         <button className="btn btn-primary" disabled={busy}>
           {busy ? 'Saving…' : 'Save profile'}
         </button>
+      </form>
+
+      <form className="auth-card card-sheet" onSubmit={submitPassword}>
+        <h3>Change password</h3>
+        {pwMsg.text && <div className={`alert ${pwMsg.type}`}>{pwMsg.text}</div>}
+        <label>
+          Current password
+          <input
+            type="password"
+            autoComplete="current-password"
+            value={pw.current_password}
+            onChange={setPwField('current_password')}
+          />
+        </label>
+        <div className="row">
+          <label>
+            New password
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={pw.new_password}
+              onChange={setPwField('new_password')}
+            />
+          </label>
+          <label>
+            Confirm new password
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={pw.confirm}
+              onChange={setPwField('confirm')}
+            />
+          </label>
+        </div>
+        <button className="btn btn-primary" disabled={pwBusy}>
+          {pwBusy ? 'Updating…' : 'Update password'}
+        </button>
+        <p className="muted small">
+          You will be signed out of all sessions and asked to sign in again.
+        </p>
       </form>
     </div>
   )
