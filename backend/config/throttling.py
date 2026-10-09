@@ -28,6 +28,14 @@ class _SettingRateThrottle(SimpleRateThrottle):
     def get_rate(self):
         return getattr(settings, self.setting_name, None) or None
 
+    def get_cache_key(self, request, view):
+        # Bucket per scope and client: authenticated users by id, anonymous
+        # callers by source address.
+        return self.cache_format % {
+            "scope": self.scope,
+            "ident": self.get_ident(request),
+        }
+
 
 class AuthThrottle(_SettingRateThrottle):
     """Limits login, registration and token refresh attempts per client."""
