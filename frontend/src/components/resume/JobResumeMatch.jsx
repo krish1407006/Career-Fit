@@ -27,8 +27,7 @@ export default function JobResumeMatch({ job }) {
         const latest = rows[0] || null
         setResume(latest)
         setLoadError('')
-        const stored = latest?.analysis?.job_relevance
-        if (stored?.job_id === job.id) setRelevance(stored)
+        setRelevance(relevanceForJob(latest?.analysis, job.id))
       })
       .catch((e) => setLoadError(apiError(e, 'Could not load your resume')))
       .finally(() => setLoading(false))
