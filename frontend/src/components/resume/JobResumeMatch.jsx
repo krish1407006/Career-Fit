@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiError } from '../../api/client'
 import { analyzeResume, fetchResumes } from '../../api/resumes'
+import { relevanceForJob } from '../../lib/resumeAnalysis'
 import JobRelevancePanel from './JobRelevancePanel'
 
 /**
