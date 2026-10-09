@@ -10,11 +10,18 @@ def blacklist_outstanding_tokens(user):
     app may not be installed in every deployment.
     """
     try:
-        from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
+        from rest_framework_simplejwt.token_blacklist.models import (
+            BlacklistedToken,
+            OutstandingToken,
+        )
 
         for token in OutstandingToken.objects.filter(user=user).exclude(
             blacklistedtoken__isnull=False
         ):
-            token.blacklistedtoken_set.create()
+            # ``BlacklistedToken.token`` is a OneToOneField, so the reverse
+            # accessor is ``token.blacklistedtoken`` (no ``_set`` suffix). The
+            # manager form is used here because it works regardless of the
+            # related name.
+            BlacklistedToken.objects.get_or_create(token=token)
     except Exception:  # pragma: no cover - blacklist app not installed
         pass
