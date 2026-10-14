@@ -1056,25 +1056,25 @@ input:disabled { background: var(--bg); color: var(--muted); }
 
 /* ---------- Dark neon theme ---------- */
 :root[data-theme='dark'] {
-  --bg: #0e1424;
-  --surface: #161d33;
-  --surface-2: #1e2742;
-  --border: #2c3556;
-  --border-strong: #404c7c;
-  --text: #e9edfb;
-  --muted: #9aa6c9;
-  --primary: #7080ff;
-  --primary-dark: #9fabff;
-  --accent: #818cf8;
-  --ok: #34d399;
-  --bad: #f87186;
+  --bg: #0a0a0b;
+  --surface: #141416;
+  --surface-2: #1c1c1f;
+  --border: #2b2b30;
+  --border-strong: #414148;
+  --text: #f1f1f3;
+  --muted: #a3a3ad;
+  --primary: #818cf8;
+  --primary-dark: #a5b4fc;
+  --accent: #a78bfa;
+  --ok: #4ade80;
+  --bad: #f87171;
   --warn: #fbbf24;
-  --grad: linear-gradient(135deg, #5563ff 0%, #818cf8 100%);
-  --grad-soft: linear-gradient(135deg, rgba(99, 102, 241, 0.22) 0%, rgba(129, 140, 248, 0.22) 100%);
-  --ring: rgba(112, 128, 255, 0.45);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
-  --shadow-md: 0 18px 44px -22px rgba(0, 0, 0, 0.7);
-  --shadow-lg: 0 34px 80px -30px rgba(0, 0, 0, 0.8);
+  --grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  --grad-soft: linear-gradient(135deg, rgba(99, 102, 241, 0.18) 0%, rgba(139, 92, 246, 0.18) 100%);
+  --ring: rgba(129, 140, 248, 0.42);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 18px 44px -22px rgba(0, 0, 0, 0.75);
+  --shadow-lg: 0 34px 80px -30px rgba(0, 0, 0, 0.85);
 }
 
 :root[data-theme='dark'] body {
@@ -1088,9 +1088,9 @@ input:disabled { background: var(--bg); color: var(--muted); }
 :root[data-theme='dark'] ::selection { background: rgba(124, 139, 255, 0.4); }
 
 :root[data-theme='dark'] .topbar {
-  background: rgba(20, 26, 46, 0.72);
-  border-color: rgba(112, 128, 255, 0.22);
-  box-shadow: 0 24px 60px -32px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  background: rgba(18, 18, 20, 0.78);
+  border-color: var(--border);
+  box-shadow: 0 24px 60px -32px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 :root[data-theme='dark'] .nav-link:hover { background: rgba(124, 139, 255, 0.14); }
 
@@ -1114,8 +1114,8 @@ input:disabled { background: var(--bg); color: var(--muted); }
 }
 :root[data-theme='dark'] input:focus,
 :root[data-theme='dark'] select:focus,
-:root[data-theme='dark'] textarea:focus { background: #0a0e1e; }
-:root[data-theme='dark'] input:disabled { background: #0a0e1e; color: var(--muted); }
+:root[data-theme='dark'] textarea:focus { background: #0c0c0e; }
+:root[data-theme='dark'] input:disabled { background: #0c0c0e; color: var(--muted); }
 :root[data-theme='dark'] select option { background: var(--surface); color: var(--text); }
 
 :root[data-theme='dark'] .btn { background: rgba(255, 255, 255, 0.06); color: var(--text); }
@@ -1129,7 +1129,7 @@ input:disabled { background: var(--bg); color: var(--muted); }
 :root[data-theme='dark'] .alert.ok { background: rgba(52, 211, 153, 0.14); color: #a7f3d0; border-color: rgba(52, 211, 153, 0.35); }
 :root[data-theme='dark'] .alert.warn { background: rgba(251, 191, 36, 0.14); color: #fde68a; border-color: rgba(251, 191, 36, 0.35); }
 
-:root[data-theme='dark'] .auth-card { background: rgba(18, 24, 43, 0.92); border-color: var(--border); }
+:root[data-theme='dark'] .auth-card { background: rgba(20, 20, 22, 0.92); border-color: var(--border); }
 :root[data-theme='dark'] .auth-hero > p { color: var(--muted); }
 :root[data-theme='dark'] .hero .btn-primary { color: #12183a; }
 :root[data-theme='dark'] .hero .btn-glass { color: #fff; }
@@ -1174,7 +1174,7 @@ input:disabled { background: var(--bg); color: var(--muted); }
 :root[data-theme='dark'] .app-table tbody tr.is-selected { background: rgba(124, 139, 255, 0.14); }
 :root[data-theme='dark'] .remarks-row { background: var(--grad-soft); }
 
-:root[data-theme='dark'] .modal-backdrop { background: rgba(2, 4, 12, 0.72); }
+:root[data-theme='dark'] .modal-backdrop { background: rgba(0, 0, 0, 0.72); }
 :root[data-theme='dark'] .list-item { background: rgba(255, 255, 255, 0.03); }
 
 :root[data-theme='dark'] .quiz-cat { background: rgba(99, 102, 241, 0.2); color: #c7d2fe; }
