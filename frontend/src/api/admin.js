@@ -9,6 +9,8 @@ import client, { apiError } from './client'
 /** DRF returns a bare array from APIView and {results: []} from ListAPIView. */
 const rows = (data) => (Array.isArray(data) ? data : data?.results ?? [])
 
+
+
 const query = (params = {}) => {
   const search = new URLSearchParams()
   Object.entries(params).forEach(([key, value]) => {
