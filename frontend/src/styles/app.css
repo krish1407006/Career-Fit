@@ -49,9 +49,9 @@ body {
 }
 
 @keyframes aurora {
-  0%   { background-position: -14vmax -18vmax, 106vmax -12vmax, 50vmax 112vmax; }
-  50%  { background-position: 8vmax 4vmax, 88vmax 10vmax, 40vmax 90vmax; }
-  100% { background-position: 20vmax -6vmax, 78vmax -2vmax, 58vmax 100vmax; }
+  0%   { background-position: -14vmax -18vmax, 106vmax -12vmax, 50vmax 112vmax, 8vmax 108vmax; }
+  50%  { background-position: 8vmax 4vmax, 88vmax 10vmax, 40vmax 90vmax, 30vmax 70vmax; }
+  100% { background-position: 20vmax -6vmax, 78vmax -2vmax, 58vmax 100vmax, -6vmax 96vmax; }
 }
 
 a { color: var(--primary-dark); }
@@ -387,7 +387,11 @@ input:disabled { background: var(--bg); color: var(--muted); }
      hover transform below. */
   animation: card-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
-.card:hover { box-shadow: var(--shadow-md); border-color: var(--border-strong); transform: translateY(-2px); }
+.card:hover {
+  box-shadow: var(--shadow-md), 0 0 0 1px rgba(99, 102, 241, 0.32), 0 22px 50px -26px rgba(139, 92, 246, 0.6);
+  border-color: transparent;
+  transform: translateY(-3px);
+}
 .card h3 { margin: 0 0 8px; font-size: 15px; }
 .card p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--muted); }
 
