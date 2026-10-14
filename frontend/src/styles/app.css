@@ -1079,10 +1079,10 @@ input:disabled { background: var(--bg); color: var(--muted); }
 
 :root[data-theme='dark'] body {
   background-image:
-    radial-gradient(closest-side, rgba(109, 124, 255, 0.3), transparent),
-    radial-gradient(closest-side, rgba(168, 85, 247, 0.24), transparent),
-    radial-gradient(closest-side, rgba(34, 211, 238, 0.18), transparent),
-    radial-gradient(closest-side, rgba(217, 70, 239, 0.12), transparent);
+    radial-gradient(closest-side, rgba(99, 102, 241, 0.3), transparent),
+    radial-gradient(closest-side, rgba(129, 140, 248, 0.2), transparent),
+    radial-gradient(closest-side, rgba(79, 70, 229, 0.18), transparent),
+    radial-gradient(closest-side, rgba(99, 102, 241, 0.1), transparent);
 }
 
 :root[data-theme='dark'] ::selection { background: rgba(124, 139, 255, 0.4); }
