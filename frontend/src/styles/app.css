@@ -8,13 +8,13 @@
   --muted: #6b748c;
   --primary: #5b5bd6;
   --primary-dark: #4a45c4;
-  --accent: #8b5cf6;
+  --accent: #6366f1;
   --ok: #12a150;
   --bad: #e5484d;
   --warn: #d97706;
   --radius: 14px;
   --radius-lg: 20px;
-  --grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 55%, #a855f7 115%);
+  --grad: linear-gradient(135deg, #4f46e5 0%, #6366f1 55%, #818cf8 100%);
   --grad-soft: linear-gradient(135deg, #eef0ff 0%, #f6f1ff 100%);
   --ring: rgba(99, 102, 241, 0.32);
   --shadow-sm: 0 1px 2px rgba(19, 26, 47, 0.05), 0 1px 3px rgba(19, 26, 47, 0.05);
@@ -34,10 +34,10 @@ body {
      can never create horizontal scroll (backgrounds don't contribute to
      overflow the way absolutely-positioned elements do). */
   background-image:
-    radial-gradient(closest-side, rgba(99, 102, 241, 0.34), transparent),
-    radial-gradient(closest-side, rgba(168, 85, 247, 0.30), transparent),
-    radial-gradient(closest-side, rgba(6, 182, 212, 0.25), transparent),
-    radial-gradient(closest-side, rgba(236, 72, 153, 0.18), transparent);
+    radial-gradient(closest-side, rgba(99, 102, 241, 0.30), transparent),
+    radial-gradient(closest-side, rgba(129, 140, 248, 0.26), transparent),
+    radial-gradient(closest-side, rgba(79, 70, 229, 0.20), transparent),
+    radial-gradient(closest-side, rgba(99, 102, 241, 0.14), transparent);
   background-repeat: no-repeat;
   background-size: 64vmax 64vmax, 60vmax 60vmax, 54vmax 54vmax, 50vmax 50vmax;
   background-position: -14vmax -18vmax, 106vmax -12vmax, 50vmax 112vmax, 8vmax 108vmax;
@@ -93,7 +93,7 @@ h1, h2, h3 { letter-spacing: -0.015em; }
   top: -1px; left: 18px; right: 18px;
   height: 2px;
   border-radius: 999px;
-  background: linear-gradient(90deg, transparent, #6366f1, #8b5cf6, #06b6d4, transparent);
+  background: linear-gradient(90deg, transparent, #4f46e5, #818cf8, transparent);
   background-size: 200% 100%;
   animation: topbar-sheen 6s linear infinite;
   pointer-events: none;
@@ -1065,12 +1065,12 @@ input:disabled { background: var(--bg); color: var(--muted); }
   --muted: #9aa6c9;
   --primary: #7080ff;
   --primary-dark: #9fabff;
-  --accent: #b494ff;
+  --accent: #818cf8;
   --ok: #34d399;
   --bad: #f87186;
   --warn: #fbbf24;
-  --grad: linear-gradient(135deg, #6d7cff 0%, #a855f7 55%, #22d3ee 115%);
-  --grad-soft: linear-gradient(135deg, rgba(109, 124, 255, 0.2) 0%, rgba(168, 85, 247, 0.2) 100%);
+  --grad: linear-gradient(135deg, #5563ff 0%, #818cf8 100%);
+  --grad-soft: linear-gradient(135deg, rgba(99, 102, 241, 0.22) 0%, rgba(129, 140, 248, 0.22) 100%);
   --ring: rgba(112, 128, 255, 0.45);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
   --shadow-md: 0 18px 44px -22px rgba(0, 0, 0, 0.7);
