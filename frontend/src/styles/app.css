@@ -1102,7 +1102,7 @@ input:disabled { background: var(--bg); color: var(--muted); }
   background: linear-gradient(180deg, rgba(109, 124, 255, 0.16), rgba(109, 124, 255, 0)), var(--surface);
 }
 :root[data-theme='dark'] .card:hover {
-  box-shadow: var(--shadow-md), 0 0 0 1px rgba(112, 128, 255, 0.4), 0 24px 60px -24px rgba(168, 85, 247, 0.5);
+  box-shadow: var(--shadow-md), 0 0 0 1px rgba(112, 128, 255, 0.4), 0 24px 60px -24px rgba(99, 102, 241, 0.45);
 }
 
 :root[data-theme='dark'] input,
