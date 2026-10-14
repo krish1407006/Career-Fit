@@ -89,8 +89,9 @@ h1, h2, h3 { letter-spacing: -0.015em; }
 .topbar::before {
   content: '';
   position: absolute;
-  top: 0; left: 0; right: 0;
+  top: -1px; left: 18px; right: 18px;
   height: 2px;
+  border-radius: 999px;
   background: linear-gradient(90deg, transparent, #6366f1, #8b5cf6, #06b6d4, transparent);
   background-size: 200% 100%;
   animation: topbar-sheen 6s linear infinite;
