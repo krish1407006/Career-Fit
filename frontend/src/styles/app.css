@@ -1165,9 +1165,9 @@ input:disabled { background: var(--bg); color: var(--muted); }
 :root[data-theme='dark'] .score-tag.warn { background: rgba(251, 191, 36, 0.18); color: #fcd34d; }
 :root[data-theme='dark'] .score-tag.bad { background: rgba(251, 113, 133, 0.18); color: #fda4af; }
 :root[data-theme='dark'] .score-tag.neutral { background: rgba(255, 255, 255, 0.08); color: var(--muted); }
-:root[data-theme='dark'] .score-tag.role-admin { background: rgba(168, 85, 247, 0.2); color: #d8b4fe; border-color: rgba(168, 85, 247, 0.4); }
-:root[data-theme='dark'] .score-tag.role-recruiter { background: rgba(34, 211, 238, 0.18); color: #67e8f9; border-color: rgba(34, 211, 238, 0.4); }
-:root[data-theme='dark'] .score-tag.role-student { background: rgba(124, 139, 255, 0.2); color: #a5b4fc; border-color: rgba(124, 139, 255, 0.4); }
+:root[data-theme='dark'] .score-tag.role-admin { background: rgba(99, 102, 241, 0.26); color: #c7d2fe; border-color: rgba(129, 140, 248, 0.45); }
+:root[data-theme='dark'] .score-tag.role-recruiter { background: rgba(99, 102, 241, 0.16); color: #a5b4fc; border-color: rgba(129, 140, 248, 0.35); }
+:root[data-theme='dark'] .score-tag.role-student { background: rgba(99, 102, 241, 0.12); color: #9aa6c9; border-color: rgba(129, 140, 248, 0.28); }
 
 :root[data-theme='dark'] .app-table th { background: rgba(255, 255, 255, 0.04); }
 :root[data-theme='dark'] .app-table tbody tr:hover { background: rgba(255, 255, 255, 0.04); }
@@ -1177,9 +1177,9 @@ input:disabled { background: var(--bg); color: var(--muted); }
 :root[data-theme='dark'] .modal-backdrop { background: rgba(2, 4, 12, 0.72); }
 :root[data-theme='dark'] .list-item { background: rgba(255, 255, 255, 0.03); }
 
-:root[data-theme='dark'] .quiz-cat { background: rgba(124, 139, 255, 0.2); color: #c7d2fe; }
-:root[data-theme='dark'] .quiz-cat.aptitude { background: rgba(251, 191, 36, 0.18); color: #fcd34d; }
-:root[data-theme='dark'] .quiz-cat.core { background: rgba(168, 85, 247, 0.2); color: #d8b4fe; }
+:root[data-theme='dark'] .quiz-cat { background: rgba(99, 102, 241, 0.2); color: #c7d2fe; }
+:root[data-theme='dark'] .quiz-cat.aptitude { background: rgba(99, 102, 241, 0.14); color: #a5b4fc; }
+:root[data-theme='dark'] .quiz-cat.core { background: rgba(99, 102, 241, 0.26); color: #c7d2fe; }
 :root[data-theme='dark'] .timer { background: var(--grad-soft); color: #c7d2fe; border-color: var(--border-strong); }
 :root[data-theme='dark'] .option { background: rgba(255, 255, 255, 0.03); }
 :root[data-theme='dark'] .option.selected { background: var(--grad-soft); }
