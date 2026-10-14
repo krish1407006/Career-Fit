@@ -43,28 +43,53 @@ export default function Login() {
 
   return (
     <div className="auth-page">
-      <form className="auth-card" onSubmit={submit}>
-        <h1 className="brand center">Career<span>AI</span></h1>
-        <p className="muted center">Placement preparation, powered by AI.</p>
-        {location.state?.notice && (
-          <div className="alert ok">{location.state.notice}</div>
-        )}
-        {error && <div className="alert error">{error}</div>}
-        <label>
-          Username
-          <input value={form.username} onChange={set('username')} autoFocus required />
-        </label>
-        <label>
-          Password
-          <input type="password" value={form.password} onChange={set('password')} required />
-        </label>
-        <button className="btn btn-primary" disabled={busy}>
-          {busy ? 'Signing in…' : 'Sign in'}
-        </button>
-        <p className="muted center">
-          New here? <Link to="/register">Create an account</Link>
-        </p>
-      </form>
+      <div className="auth-shell">
+        <aside className="auth-hero">
+          <div className="brand brand-lg">Career<span>AI</span></div>
+          <h2>Prep smarter. Interview with confidence.</h2>
+          <p>
+            AI-driven resume analysis, smart job matching, timed quizzes and live
+            voice mock interviews — everything you need for placement season, in
+            one place.
+          </p>
+          <ul className="auth-features">
+            <li>
+              <span className="af-icon">✓</span>
+              <div>AI resume analysis<small>Reveal skill gaps and strengths instantly</small></div>
+            </li>
+            <li>
+              <span className="af-icon">★</span>
+              <div>Smart job matching<small>See how well you fit every role</small></div>
+            </li>
+            <li>
+              <span className="af-icon">→</span>
+              <div>Voice mock interviews<small>Practise with live AI feedback</small></div>
+            </li>
+          </ul>
+        </aside>
+        <form className="auth-card" onSubmit={submit}>
+          <h1 className="brand center">Welcome back</h1>
+          <p className="muted center">Sign in to continue your preparation.</p>
+          {location.state?.notice && (
+            <div className="alert ok">{location.state.notice}</div>
+          )}
+          {error && <div className="alert error">{error}</div>}
+          <label>
+            Username
+            <input value={form.username} onChange={set('username')} autoFocus required />
+          </label>
+          <label>
+            Password
+            <input type="password" value={form.password} onChange={set('password')} required />
+          </label>
+          <button className="btn btn-primary" disabled={busy}>
+            {busy ? 'Signing in…' : 'Sign in'}
+          </button>
+          <p className="muted center">
+            New here? <Link to="/register">Create an account</Link>
+          </p>
+        </form>
+      </div>
     </div>
   )
 }
