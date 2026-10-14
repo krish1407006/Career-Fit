@@ -388,17 +388,46 @@ export default function StudentHome() {
 
   return (
     <div className="page dashboard">
-      <div className="page-head">
-        <div>
-          <h1>Student Dashboard</h1>
-          <p className="muted">
-            Welcome, {student?.full_name || user?.username || 'student'}. Track your placement preparation here.
+      <section className="hero">
+        <div className="hero-copy">
+          <span className="hero-eyebrow">Student dashboard</span>
+          <h1 className="hero-title">
+            Welcome back, {student?.full_name || user?.username || 'student'}
+          </h1>
+          <p className="hero-lead">
+            Track your placement preparation, sharpen your skills and land your next role.
           </p>
+          <div className="hero-actions">
+            <Link to="/student/jobs" className="btn btn-primary">Browse jobs</Link>
+            <Link to="/student/interview" className="btn btn-glass">Start mock interview</Link>
+            <button className="btn btn-glass" onClick={load} disabled={refreshing}>
+              {refreshing ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </div>
         </div>
-        <button className="btn btn-ghost btn-sm" onClick={load} disabled={refreshing}>
-          {refreshing ? 'Refreshing…' : 'Refresh'}
-        </button>
-      </div>
+        {data && (
+          <div className="hero-metrics">
+            <div className="hero-metric">
+              <span className="hero-metric-value">{profile.completion ?? 0}%</span>
+              <span className="hero-metric-label">Profile complete</span>
+            </div>
+            <div className="hero-metric">
+              <span className="hero-metric-value">{applications.total}</span>
+              <span className="hero-metric-label">Applications</span>
+            </div>
+            <div className="hero-metric">
+              <span className="hero-metric-value">
+                {quizzes.average_score != null ? `${quizzes.average_score}%` : '—'}
+              </span>
+              <span className="hero-metric-label">Avg quiz score</span>
+            </div>
+            <div className="hero-metric">
+              <span className="hero-metric-value">{interviews.completed ?? 0}</span>
+              <span className="hero-metric-label">Mock interviews</span>
+            </div>
+          </div>
+        )}
+      </section>
 
       {error && <div className="alert error">{error}</div>}
 

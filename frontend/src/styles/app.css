@@ -83,6 +83,22 @@ h1, h2, h3 { letter-spacing: -0.015em; }
   top: 0;
   z-index: 10;
 }
+/* Animated gradient hairline along the top of the header. */
+.topbar::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #6366f1, #8b5cf6, #06b6d4, transparent);
+  background-size: 200% 100%;
+  animation: topbar-sheen 6s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes topbar-sheen {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
 
 .brand {
   font-size: 21px;
@@ -90,9 +106,16 @@ h1, h2, h3 { letter-spacing: -0.015em; }
   letter-spacing: -0.02em;
   text-decoration: none;
   background: var(--grad);
+  background-size: 200% 200%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  animation: brand-shift 9s ease-in-out infinite;
+}
+
+@keyframes brand-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
 }
 .brand span {
   -webkit-background-clip: text;
@@ -274,14 +297,47 @@ input:disabled { background: var(--bg); color: var(--muted); }
 .btn:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--ring); }
 .btn:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
 .btn-primary {
+  position: relative;
+  overflow: hidden;
   background: var(--grad);
+  background-size: 160% 160%;
   color: #fff;
   box-shadow: 0 10px 22px -10px rgba(99, 102, 241, 0.8);
+  animation: btn-pan 8s ease infinite;
+}
+/* Light sweep that runs across primary buttons on hover. */
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -130%;
+  width: 55%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  transform: skewX(-18deg);
+  transition: left 0.6s ease;
+  pointer-events: none;
 }
 .btn-primary:hover:not(:disabled) {
   box-shadow: 0 14px 28px -10px rgba(99, 102, 241, 0.85);
   filter: saturate(1.08);
 }
+.btn-primary:hover:not(:disabled)::after { left: 150%; }
+
+@keyframes btn-pan {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.btn-glass {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: none;
+}
+.btn-glass:hover:not(:disabled) { background: rgba(255, 255, 255, 0.28); }
 .btn-ghost { border-color: var(--border); background: rgba(255, 255, 255, 0.7); }
 .btn-ghost:hover:not(:disabled) { border-color: var(--border-strong); background: #fff; }
 .btn-danger { background: #fdecec; color: var(--bad); box-shadow: none; }
@@ -322,11 +378,29 @@ input:disabled { background: var(--bg); color: var(--muted); }
   border-radius: var(--radius);
   padding: 18px;
   box-shadow: var(--shadow-sm);
-  transition: box-shadow 0.18s ease, border-color 0.18s ease;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  /* `backwards` (not `forwards`) so the finished animation stops overriding the
+     hover transform below. */
+  animation: card-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
-.card:hover { box-shadow: var(--shadow-md); border-color: var(--border-strong); }
+.card:hover { box-shadow: var(--shadow-md); border-color: var(--border-strong); transform: translateY(-2px); }
 .card h3 { margin: 0 0 8px; font-size: 15px; }
 .card p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--muted); }
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Stagger the first few cards in a grid for a lively entrance. */
+.cards > :nth-child(1), .insight-list > :nth-child(1) { animation-delay: 0.03s; }
+.cards > :nth-child(2), .insight-list > :nth-child(2) { animation-delay: 0.09s; }
+.cards > :nth-child(3), .insight-list > :nth-child(3) { animation-delay: 0.15s; }
+.cards > :nth-child(4), .insight-list > :nth-child(4) { animation-delay: 0.21s; }
+.cards > :nth-child(5), .insight-list > :nth-child(5) { animation-delay: 0.27s; }
+.cards > :nth-child(6), .insight-list > :nth-child(6) { animation-delay: 0.33s; }
+.cards > :nth-child(7), .insight-list > :nth-child(7) { animation-delay: 0.39s; }
+.cards > :nth-child(8), .insight-list > :nth-child(8) { animation-delay: 0.45s; }
 .muted { color: var(--muted); font-size: 14px; }
 .ok { color: var(--ok); font-weight: 700; }
 .bad { color: var(--bad); font-weight: 700; }
