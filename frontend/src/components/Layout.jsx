@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/authState'
+import ThemeToggle from './ThemeToggle'
 
 export default function Layout() {
   const { user, logout } = useAuth()
@@ -44,6 +45,7 @@ export default function Layout() {
           )}
         </nav>
         <div className="topbar-right">
+          <ThemeToggle />
           <span className="topbar-user">
             {user?.username} <em className="role-tag">{user?.role}</em>
           </span>

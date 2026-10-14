@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { apiError } from '../api/client'
 import { useAuth } from '../context/authState'
+import ThemeToggle from '../components/ThemeToggle'
 
 const initial = {
   username: '',
@@ -37,6 +38,7 @@ export default function Register() {
 
   return (
     <div className="auth-page">
+      <ThemeToggle />
       <div className="auth-shell">
         <aside className="auth-hero">
           <div className="brand brand-lg">Career<span>AI</span></div>

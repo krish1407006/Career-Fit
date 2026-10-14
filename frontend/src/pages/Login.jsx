@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { apiError } from '../api/client'
 import { useAuth } from '../context/authState'
+import ThemeToggle from '../components/ThemeToggle'
 
 const roleHome = (user) => {
   if (user.is_admin_role) return '/admin'
@@ -43,6 +44,7 @@ export default function Login() {
 
   return (
     <div className="auth-page">
+      <ThemeToggle />
       <div className="auth-shell">
         <aside className="auth-hero">
           <div className="brand brand-lg">Career<span>AI</span></div>
