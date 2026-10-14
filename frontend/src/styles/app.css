@@ -1211,6 +1211,93 @@ input:disabled { background: var(--bg); color: var(--muted); }
 :root[data-theme='dark'] .trend-axis,
 :root[data-theme='dark'] .trend-date { fill: var(--muted); }
 
+/* ---------- Calm dark: strip the flashy "disco" decoration ---------- */
+/* One static, barely-there indigo glow instead of drifting multi-colour blobs. */
+:root[data-theme='dark'] body {
+  animation: none;
+  background-image: radial-gradient(120% 90% at 50% -20%, rgba(99, 102, 241, 0.12), transparent 60%);
+}
+:root[data-theme='dark'] .topbar::before { display: none; }
+
+:root[data-theme='dark'] .brand,
+:root[data-theme='dark'] .brand span {
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  color: var(--text);
+  animation: none;
+}
+
+:root[data-theme='dark'] .nav-link.active {
+  background: rgba(99, 102, 241, 0.16);
+  color: #c7d2fe;
+  box-shadow: none;
+}
+
+:root[data-theme='dark'] .auth-features .af-icon {
+  background: var(--surface-2);
+  color: var(--primary-dark);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+:root[data-theme='dark'] .auth-card::before { background: var(--primary); height: 2px; opacity: 0.7; }
+
+:root[data-theme='dark'] .stat-card::before { background: var(--primary); opacity: 0.5; }
+:root[data-theme='dark'] .stat-value,
+:root[data-theme='dark'] .analysis-score .score-big {
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  color: var(--primary-dark);
+}
+
+:root[data-theme='dark'] .card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-strong);
+  transform: none;
+}
+
+:root[data-theme='dark'] .btn-primary {
+  background: #4f46e5;
+  background-size: auto;
+  color: #fff;
+  animation: none;
+  box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.6);
+}
+:root[data-theme='dark'] .btn-primary::after { display: none; }
+:root[data-theme='dark'] .btn-primary:hover:not(:disabled) {
+  background: #5b53ea;
+  filter: none;
+  box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.6);
+}
+
+:root[data-theme='dark'] .section-title::before { background: var(--primary); box-shadow: none; }
+:root[data-theme='dark'] .page-head h1::after { background: var(--primary); }
+
+:root[data-theme='dark'] .hero {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  animation: none;
+}
+:root[data-theme='dark'] .hero::before,
+:root[data-theme='dark'] .hero::after { display: none; }
+:root[data-theme='dark'] .hero-lead { color: var(--muted); opacity: 1; }
+:root[data-theme='dark'] .hero .btn-primary { background: #4f46e5; color: #fff; }
+:root[data-theme='dark'] .hero .btn-glass {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+:root[data-theme='dark'] .hero-metric {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+:root[data-theme='dark'] .hero-metric-label { color: var(--muted); opacity: 1; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
