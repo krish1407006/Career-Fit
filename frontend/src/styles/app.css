@@ -1155,7 +1155,7 @@ input:disabled { background: var(--bg); color: var(--muted); }
 
 :root[data-theme='dark'] .chip { background: rgba(124, 139, 255, 0.16); color: #c7d2fe; border-color: rgba(124, 139, 255, 0.3); }
 :root[data-theme='dark'] .ai-chip,
-:root[data-theme='dark'] .chip.remove.ai-chip { background: rgba(168, 85, 247, 0.18); color: #d8b4fe; border-color: rgba(168, 85, 247, 0.38); }
+:root[data-theme='dark'] .chip.remove.ai-chip { background: rgba(99, 102, 241, 0.22); color: #c7d2fe; border-color: rgba(129, 140, 248, 0.4); }
 :root[data-theme='dark'] .chip.remove { background: rgba(124, 139, 255, 0.16); border-color: rgba(124, 139, 255, 0.3); }
 :root[data-theme='dark'] .miss-chip { background: rgba(251, 113, 133, 0.18) !important; color: #fda4af !important; }
 :root[data-theme='dark'] .ok-chip { background: rgba(52, 211, 153, 0.18) !important; color: #6ee7b7 !important; }
