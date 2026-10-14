@@ -68,6 +68,7 @@ function HomeRedirect() {
   return <Navigate to={roleHome(user)} replace />
 }
 
+
 function AppRoutes() {
   return (
     <Routes>
