@@ -505,7 +505,22 @@ input:disabled { background: var(--bg); color: var(--muted); }
 .score-tag.bad { background: #fdecec; color: var(--bad); }
 .score-tag.neutral { background: #eef1f8; color: var(--muted); }
 .small { font-size: 13px; }
-.section-title { margin: 30px 0 12px; font-size: 18px; }
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 30px 0 12px;
+  font-size: 18px;
+}
+.section-title::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 6px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--grad);
+  box-shadow: 0 4px 12px -3px rgba(99, 102, 241, 0.7);
+}
 .app-table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
 .app-table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .app-table th, .app-table td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--border); }
