@@ -3,6 +3,7 @@ from django.contrib.auth.models import AbstractUser, UserManager as DjangoUserMa
 from django.db import models
 
 
+
 class UserManager(DjangoUserManager):
     """Default manager that pins superuser/admin accounts to the admin role."""
 
