@@ -14,6 +14,8 @@ class StudentProfileAdmin(admin.ModelAdmin):
     list_display = ("user", "full_name", "college", "branch", "graduation_year", "cgpa")
 
 
+
+
 @admin.register(RecruiterProfile)
 class RecruiterProfileAdmin(admin.ModelAdmin):
     list_display = ("user", "company_name", "location")
