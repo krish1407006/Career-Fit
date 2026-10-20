@@ -16,6 +16,7 @@ class StudentProfileAdmin(admin.ModelAdmin):
 
 
 
+
 @admin.register(RecruiterProfile)
 class RecruiterProfileAdmin(admin.ModelAdmin):
     list_display = ("user", "company_name", "location")
