@@ -101,7 +101,7 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
   } = meter
 
   const recording = serverVoice ? recorder.recording : stt.listening
-  const voiceAvailable = serverVoice || stt.supported
+  const voiceAvailable = serverVoice || (stt.supported && !stt.blocker)
   const ttsAvailable = tts.supported
   const voiceBlocker = voiceAvailable ? null : stt.blocker
 
