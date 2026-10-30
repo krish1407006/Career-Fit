@@ -126,7 +126,8 @@ export const pickVoice = (voices) => {
   if (!Array.isArray(voices) || voices.length === 0) return null
   const english = voices.filter((v) => /^en(-|_|$)/i.test(v.lang || ''))
   const pool = english.length ? english : voices
-  const preferred = ['Google UK English Male', 'Google US English', 'Microsoft David',
+  const preferred = ['Google UK English Male', 'Google US English', 'Microsoft Aria Online (Natural)',
+    'Microsoft Jenny Online (Natural)', 'Microsoft Guy Online (Natural)', 'Microsoft David',
     'Microsoft Mark', 'Alex', 'Daniel', 'Google UK English Female']
   return (
     pool.find((v) => preferred.includes(v.name)) ||
