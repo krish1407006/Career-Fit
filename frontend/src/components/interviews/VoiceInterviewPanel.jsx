@@ -69,7 +69,13 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
   const { start: startListening, stop: stopListening, reset: resetListening, interim } = stt
   // Runs alongside recognition purely to drive the level bar.
   const meter = useAudioLevel()
-  const { start: startMeter, stop: stopMeter, barRef: meterBarRef } = meter
+  const {
+    start: startMeter,
+    stop: stopMeter,
+    barRef: meterBarRef,
+    deviceLabel: micDevice,
+    silent: micSilent,
+  } = meter
 
   const voiceAvailable = stt.supported
   const ttsAvailable = tts.supported
@@ -123,7 +129,7 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
 
   const canSubmit = answer.length > 0 && !submitting && stage !== 'processing'
 
-  const onMic = useCallback(() => {
+  const onMic = useCallback(async () => {
     setError('')
     if (stt.listening) {
       stopListening()
@@ -132,8 +138,11 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
       return
     }
     setStage('listening')
-    // The meter is best effort: a failure here must never block the answer.
-    startMeter()
+    // Ask for the microphone once, before recognition starts. On some Edge
+    // builds two simultaneous getUserMedia requests race, and the recognition
+    // one loses the permission prompt. The meter is still best effort: a
+    // failure here must never block the answer.
+    await startMeter()
     startListening()
   }, [stt.listening, startListening, stopListening, startMeter, stopMeter])
 
@@ -306,13 +315,20 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
               <span className="muted small">
                 {stt.listening
                   ? meter.active
-                    ? 'Input level — speak to make it move'
+                    ? `Input level${micDevice ? ` — ${micDevice}` : ''} — speak to make it move`
                     : 'Starting microphone…'
                   : 'Input level idle'}
               </span>
             </div>
           )}
           {meter.error && <div className="alert warn">{meter.error}</div>}
+          {micSilent && stt.listening && (
+            <div className="alert warn">
+              No sound is reaching the browser. Check the microphone is connected,
+              unmuted and set as the default input device (Windows: Settings → System →
+              Sound → Input), then press Stop recording and try again.
+            </div>
+          )}
 
           {stt.error && <div className="alert warn">{stt.error}</div>}
 
