@@ -24,8 +24,10 @@ import {
  *              -> completed
  *
  * Nothing records the microphone until the student presses the mic button, and
- * no answer is submitted without an explicit "Submit answer". Raw audio is never
- * uploaded or stored: only the recognised transcript goes to the backend.
+ * no answer is submitted without an explicit "Submit answer". Chrome recognises
+ * speech in-page, so only the transcript leaves the browser. Edge's recogniser
+ * is unreliable, so there the recorded answer is sent once for AI transcription
+ * and is never stored by the backend.
  */
 
 const STATE_LABEL = {
@@ -101,6 +103,9 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
   } = meter
 
   const recording = serverVoice ? recorder.recording : stt.listening
+  // The gap between pressing Start and MediaRecorder actually running: keep the
+  // button disabled so a double click cannot open two microphone streams.
+  const startingMic = serverVoice && stage === 'listening' && !recorder.recording
   const voiceAvailable = serverVoice || (stt.supported && !stt.blocker)
   const ttsAvailable = tts.supported
   const voiceBlocker = voiceAvailable ? null : stt.blocker
@@ -385,9 +390,18 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
             <button
               className={`btn ${recording ? 'btn-danger' : 'btn-primary'} mic-btn`}
               onClick={onMic}
-              disabled={!voiceAvailable || submitting || (serverVoice && stage === 'processing')}
+              disabled={
+                !voiceAvailable ||
+                submitting ||
+                startingMic ||
+                (serverVoice && stage === 'processing')
+              }
             >
-              {recording ? '⏹ Stop recording' : '🎤 Start speaking'}
+              {startingMic
+                ? 'Starting microphone…'
+                : recording
+                  ? '⏹ Stop recording'
+                  : '🎤 Start speaking'}
             </button>
             {recording && (
               <span className={meter.speaking ? 'voice-live' : 'muted small'}>

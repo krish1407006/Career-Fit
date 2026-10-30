@@ -11,16 +11,16 @@ import {
  * Live microphone level for the recording meter.
  *
  * The Web Speech API reports no amplitude at all, so the meter opens its own
- * `getUserMedia` stream and reads an `AnalyserNode`. That stream is used for the
- * level number only: it is never recorded, never uploaded and never handed to
- * the interview service, exactly like the recognised transcript.
+ * `getUserMedia` stream and reads an `AnalyserNode`. In server-transcription
+ * mode that same stream is handed to MediaRecorder, so the meter and the
+ * recorded answer always come from one device. Otherwise the stream only drives
+ * the level: it is never recorded or uploaded.
  *
  * The bar is written straight to the DOM through `barRef` inside the animation
  * frame instead of going through React state, because a level changes ~60 times
  * a second and re-rendering the interview that often would make it stutter.
  *
- * Failing to get a level is never fatal. If the stream is blocked the interview
- * carries on with speech recognition alone.
+ * Failing to get a level is never fatal: the student can still type the answer.
  */
 export function useAudioLevel({ onSpeakingChange, deviceId = '' } = {}) {
   const supported = audioLevelSupported()

@@ -9,6 +9,7 @@ import {
   startInterview,
 } from '../../api/interviews'
 import {
+  prefersServerTranscription,
   speechRecognitionBlocker,
   speechRecognitionSupported,
   speechSynthesisHasVoices,
@@ -145,7 +146,7 @@ export default function Interview() {
     }
   }
 
-  const voiceOk = speechRecognitionSupported()
+  const voiceOk = speechRecognitionSupported() || prefersServerTranscription()
   const voiceBlocker = speechRecognitionBlocker()
 
   // ---------------- Live interview ----------------

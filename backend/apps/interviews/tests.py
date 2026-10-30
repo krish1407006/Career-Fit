@@ -6,6 +6,7 @@ Every external AI call is mocked: no test performs a network request.
 from unittest import mock
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -381,6 +382,86 @@ class AnswerTests(InterviewTestBase):
         self.assertIsNotNone(self.session_obj.completed_at)
 
 
+class TranscribeAnswerTests(InterviewTestBase):
+    """Audio upload -> provider transcription, with no network calls."""
+
+    def setUp(self):
+        super().setUp()
+        self.url = "/api/interviews/transcribe/"
+
+    def audio(self, content=b"fake-webm-audio", content_type="audio/webm", name="answer.webm"):
+        return SimpleUploadedFile(name, content, content_type=content_type)
+
+    def test_student_audio_is_transcribed(self):
+        with mock.patch(
+            "apps.interviews.views.transcribe_answer",
+            return_value={"text": "I built a Django REST API.", "source": "ai"},
+        ) as transcribe:
+            response = self.client.post(
+                self.url, {"audio": self.audio()}, format="multipart"
+            )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["text"], "I built a Django REST API.")
+        self.assertEqual(response.data["source"], "ai")
+        args = transcribe.call_args.args
+        self.assertEqual(args[0], b"fake-webm-audio")
+        self.assertEqual(args[1], "audio/webm")
+
+    def test_missing_audio_is_rejected(self):
+        response = self.client.post(self.url, {}, format="multipart")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["code"], "audio_required")
+
+    def test_empty_audio_is_rejected(self):
+        response = self.client.post(
+            self.url, {"audio": self.audio(content=b"")}, format="multipart"
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["code"], "audio_empty")
+
+    def test_unsupported_audio_type_is_rejected(self):
+        response = self.client.post(
+            self.url,
+            {"audio": self.audio(content_type="application/octet-stream", name="x.bin")},
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["code"], "audio_type_unsupported")
+
+    def test_provider_failure_returns_safe_message(self):
+        with mock.patch(
+            "apps.interviews.views.transcribe_answer",
+            side_effect=ProviderUnavailable("secret provider detail"),
+        ):
+            response = self.client.post(
+                self.url, {"audio": self.audio()}, format="multipart"
+            )
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.data["code"], "transcription_unavailable")
+        self.assertNotIn("secret provider detail", str(response.data))
+
+    def test_codec_parameter_is_stripped_from_mime_type(self):
+        with mock.patch(
+            "apps.interviews.views.transcribe_answer",
+            return_value={"text": "hello", "source": "ai"},
+        ) as transcribe:
+            self.client.post(
+                self.url,
+                {"audio": self.audio(content_type="audio/webm;codecs=opus")},
+                format="multipart",
+            )
+        self.assertEqual(transcribe.call_args.args[1], "audio/webm")
+
+    def test_anonymous_user_cannot_transcribe(self):
+        client = APIClient()
+        with mock.patch("apps.interviews.views.transcribe_answer") as transcribe:
+            response = client.post(
+                self.url, {"audio": self.audio()}, format="multipart"
+            )
+        self.assertIn(response.status_code, (401, 403))
+        transcribe.assert_not_called()
+
+
 class AiServiceTests(TestCase):
     """6, 7, 8, 10. AI generation, evaluation, malformed output, no config."""
 
@@ -511,6 +592,28 @@ class AiServiceTests(TestCase):
                 context="", position="QA", question="q", answer="a real answer"
             )
         self.assertEqual(result["source"], "offline")
+
+    def test_transcription_is_mocked_and_cleaned(self):
+        with mock.patch("apps.ai.providers.is_configured", return_value=True), \
+             mock.patch("apps.ai.providers.transcribe",
+                        return_value='"I used Django and PostgreSQL."') as transcribe, \
+             mock.patch("apps.ai.providers.provider_name", return_value="gemini"):
+            result = interview_service.transcribe_answer(b"audio", "audio/webm")
+        self.assertEqual(result["text"], "I used Django and PostgreSQL.")
+        self.assertEqual(result["source"], "ai")
+        self.assertEqual(result["provider"], "gemini")
+        self.assertEqual(transcribe.call_args.args[:2], (b"audio", "audio/webm"))
+
+    def test_transcription_returns_empty_when_nothing_is_spoken(self):
+        with mock.patch("apps.ai.providers.is_configured", return_value=True), \
+             mock.patch("apps.ai.providers.transcribe", return_value="  "):
+            result = interview_service.transcribe_answer(b"audio", "audio/webm")
+        self.assertEqual(result["text"], "")
+
+    def test_transcription_requires_a_provider(self):
+        with mock.patch("apps.ai.providers.is_configured", return_value=False):
+            with self.assertRaises(ProviderUnavailable):
+                interview_service.transcribe_answer(b"audio", "audio/webm")
 
     def test_report_is_mocked_and_structured(self):
         pairs = [{"question": "Q1", "answer": "A1", "score": 8, "feedback": "good",

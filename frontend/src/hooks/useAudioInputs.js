@@ -24,11 +24,25 @@ export function useAudioInputs() {
   }, [supported])
 
   useEffect(() => {
-    refresh()
     if (!supported) return undefined
-    navigator.mediaDevices.addEventListener?.('devicechange', refresh)
-    return () => navigator.mediaDevices.removeEventListener?.('devicechange', refresh)
-  }, [refresh, supported])
+    let cancelled = false
+    const load = async () => {
+      try {
+        const all = await navigator.mediaDevices.enumerateDevices()
+        if (!cancelled) {
+          setDevices(all.filter((device) => device.kind === 'audioinput'))
+        }
+      } catch {
+        // Device listing is optional; the system default still works.
+      }
+    }
+    load()
+    navigator.mediaDevices.addEventListener?.('devicechange', load)
+    return () => {
+      cancelled = true
+      navigator.mediaDevices.removeEventListener?.('devicechange', load)
+    }
+  }, [supported])
 
   return { devices, refresh, supported }
 }
