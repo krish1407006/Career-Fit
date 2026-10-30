@@ -68,6 +68,7 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
   const [feedbackQuestion, setFeedbackQuestion] = useState('')
   const tokenRef = useRef('')
   const spokenIdsRef = useRef(new Set())
+  const speakSeqRef = useRef(0)
 
   const [inputId, setInputId] = useState(() => {
     try {
@@ -126,16 +127,15 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
     }
     if (spokenIdsRef.current.has(question)) return
     spokenIdsRef.current.add(question)
-    let cancelled = false
+    // StrictMode runs this effect twice on mount. The second run returns above,
+    // so the first promise must still be allowed to hand the turn over.
+    const seq = ++speakSeqRef.current
     setStage('ai_speaking')
     tts.speak(question).then((spoke) => {
-      if (cancelled) return
+      if (seq !== speakSeqRef.current) return
       setSpokeCurrent(Boolean(spoke))
       setStage((current) => (current === 'ai_speaking' ? 'awaiting_answer' : current))
     })
-    return () => {
-      cancelled = true
-    }
     // tts.speak identity changes when mute/voice changes; re-running on it would
     // restart the question, so it is intentionally not a dependency.
     // eslint-disable-next-line react-hooks/exhaustive-deps

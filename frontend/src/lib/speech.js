@@ -86,6 +86,20 @@ export const speechRecognitionBlocker = () => {
   return null
 }
 
+/**
+ * Why the voice interview cannot use a microphone at all, or null when it can.
+ *
+ * Prefers the recording path, which works without the in-page recogniser, and
+ * falls back to the Web Speech requirements. The secure-context check comes
+ * first because neither path can touch a microphone without it.
+ */
+export const voiceInputBlocker = () => {
+  if (typeof window === 'undefined') return 'No browser window is available.'
+  if (!window.isSecureContext) return speechRecognitionBlocker()
+  if (prefersServerTranscription()) return null
+  return speechRecognitionBlocker()
+}
+
 /** True when this browser can speak text aloud. */
 export const speechSynthesisSupported = () =>
   typeof window !== 'undefined' &&

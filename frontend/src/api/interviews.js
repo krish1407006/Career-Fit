@@ -16,7 +16,13 @@ export const transcribeInterviewAudio = (blob) => {
   const type = blob.type || 'audio/webm'
   const ext = type.includes('ogg') ? 'ogg' : type.includes('mp4') ? 'm4a' : 'webm'
   form.append('audio', blob, `answer.${ext}`)
-  return client.post('/interviews/transcribe/', form).then(({ data }) => data)
+  // The client defaults to application/json. Without this override Axios turns
+  // the FormData into a JSON object and the backend never receives a file.
+  return client
+    .post('/interviews/transcribe/', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then(({ data }) => data)
 }
 
 export const fetchMyInterviews = () =>

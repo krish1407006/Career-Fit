@@ -9,12 +9,10 @@ import {
   startInterview,
 } from '../../api/interviews'
 import {
-  prefersServerTranscription,
-  speechRecognitionBlocker,
-  speechRecognitionSupported,
   speechSynthesisHasVoices,
   speechSynthesisSupported,
   UNSUPPORTED_MESSAGE,
+  voiceInputBlocker,
 } from '../../lib/speech'
 import InterviewReport from '../../components/interviews/InterviewReport'
 import VoiceInterviewPanel from '../../components/interviews/VoiceInterviewPanel'
@@ -146,8 +144,8 @@ export default function Interview() {
     }
   }
 
-  const voiceOk = speechRecognitionSupported() || prefersServerTranscription()
-  const voiceBlocker = speechRecognitionBlocker()
+  const voiceBlocker = voiceInputBlocker()
+  const voiceOk = !voiceBlocker
 
   // ---------------- Live interview ----------------
   if (session) {

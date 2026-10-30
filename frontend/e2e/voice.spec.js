@@ -251,6 +251,7 @@ test('voice: a browser without speech recognition falls back to typing', async (
   await gotoAndWait(page, '/student/interview')
   await expect(warn(page, 'This browser has no speech recognition')).toBeVisible()
   // The interview itself must never be gated on voice support.
+  await page.getByLabel('Target role').fill('Python Developer')
   await expect(page.getByRole('button', { name: 'Start interview' })).toBeEnabled()
 
   await startInterview(page)
@@ -274,6 +275,7 @@ test('voice: an insecure connection explains why the microphone is off', async (
   })
 
   await gotoAndWait(page, '/student/interview')
+  await page.getByLabel('Target role').fill('Python Developer')
   await expect(warn(page, 'Voice input needs a secure connection')).toBeVisible()
 
   await startInterview(page)
