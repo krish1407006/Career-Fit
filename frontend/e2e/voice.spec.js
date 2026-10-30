@@ -438,3 +438,24 @@ test('voice: a stale recogniser end cannot kill the next recording', async ({ pa
   expect(state.stageClass).toBe('stage-listening')
   expect(state.disabled).toBe(false)
 })
+
+test.only('debug stt', async ({ page }) => {
+  await installInstantTTS(page)
+  await installFakeSTT(page, 'speech')
+  await startInterview(page)
+  console.log('env', await page.evaluate(() => ({
+    sr: typeof window.SpeechRecognition,
+    wsr: typeof window.webkitSpeechRecognition,
+    sec: window.isSecureContext,
+    ls: localStorage.getItem('careerai_voice_engine'),
+    md: Boolean(navigator.mediaDevices?.getUserMedia),
+    mr: typeof window.MediaRecorder,
+  })))
+  await mic(page).click()
+  await page.waitForTimeout(1500)
+  console.log('after', await page.evaluate(() => ({
+    transcript: document.querySelector('textarea[aria-label="Recognised transcript"]')?.value,
+    stage: document.querySelector('.voice-stage')?.className,
+    alerts: [...document.querySelectorAll('.alert')].map((e) => e.textContent),
+  })))
+})
