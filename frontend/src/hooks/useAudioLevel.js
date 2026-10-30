@@ -89,6 +89,11 @@ export function useAudioLevel({ onSpeakingChange } = {}) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
+      const track = stream.getAudioTracks?.()[0]
+      setDeviceLabel(track?.label || '')
+      lastSoundAtRef.current = performance.now()
+      silentRef.current = false
+      setSilent(false)
 
       const AudioContextClass = window.AudioContext || window.webkitAudioContext
       const context = new AudioContextClass()
@@ -122,6 +127,20 @@ export function useAudioLevel({ onSpeakingChange } = {}) {
             setSpeaking(nowSpeaking)
             onSpeakingChangeRef.current?.(nowSpeaking)
           }
+
+          if (level >= SILENCE_LEVEL) {
+            lastSoundAtRef.current = performance.now()
+            if (silentRef.current) {
+              silentRef.current = false
+              setSilent(false)
+            }
+          } else if (
+            !silentRef.current &&
+            performance.now() - lastSoundAtRef.current > 4000
+          ) {
+            silentRef.current = true
+            setSilent(true)
+          }
         }
         frameRef.current = requestAnimationFrame(tick)
       }
@@ -143,8 +162,8 @@ export function useAudioLevel({ onSpeakingChange } = {}) {
   }, [teardown])
 
   return useMemo(
-    () => ({ supported, active, speaking, error, start, stop, barRef }),
-    [supported, active, speaking, error, start, stop],
+    () => ({ supported, active, speaking, silent, deviceLabel, error, start, stop, barRef }),
+    [supported, active, speaking, silent, deviceLabel, error, start, stop],
   )
 }
 
