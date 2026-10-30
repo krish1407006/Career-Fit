@@ -62,8 +62,8 @@ export function useSpeechSynthesis() {
           window.speechSynthesis.cancel()
           const utterance = new window.SpeechSynthesisUtterance(content)
           utterance.lang = 'en-US'
-           utterance.rate = 0.70
-           utterance.pitch = 0.95
+           utterance.rate = 1.05
+           utterance.pitch = 3.00
           if (voice) utterance.voice = voice
           let settled = false
           const finish = (spoke) => {
