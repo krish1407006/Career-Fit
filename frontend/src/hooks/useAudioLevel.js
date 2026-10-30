@@ -22,7 +22,7 @@ import {
  * Failing to get a level is never fatal. If the stream is blocked the interview
  * carries on with speech recognition alone.
  */
-export function useAudioLevel({ onSpeakingChange } = {}) {
+export function useAudioLevel({ onSpeakingChange, deviceId = '' } = {}) {
   const supported = audioLevelSupported()
   const [active, setActive] = useState(false)
   const [error, setError] = useState('')
@@ -84,10 +84,14 @@ export function useAudioLevel({ onSpeakingChange } = {}) {
   useEffect(() => teardown, [teardown])
 
   const start = useCallback(async () => {
-    if (!supported || streamRef.current) return
+    if (!supported) return null
+    if (streamRef.current) return streamRef.current
     setError('')
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const constraints = deviceId
+        ? { audio: { deviceId: { exact: deviceId } } }
+        : { audio: true }
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
       streamRef.current = stream
       const track = stream.getAudioTracks?.()[0]
       setDeviceLabel(track?.label || '')
@@ -145,7 +149,9 @@ export function useAudioLevel({ onSpeakingChange } = {}) {
         frameRef.current = requestAnimationFrame(tick)
       }
       frameRef.current = requestAnimationFrame(tick)
-    } catch (err) {      const name = err?.name || ''
+      return stream
+    } catch (err) {
+      const name = err?.name || ''
       teardown()
       if (name === 'NotAllowedError' || name === 'SecurityError') {
         setError('Microphone access was blocked, so the level meter is unavailable.')
@@ -154,8 +160,9 @@ export function useAudioLevel({ onSpeakingChange } = {}) {
       } else {
         setError('The level meter could not start. Speech recognition still works.')
       }
+      return null
     }
-  }, [supported, teardown])
+  }, [supported, teardown, deviceId])
 
   const stop = useCallback(() => {
     teardown()

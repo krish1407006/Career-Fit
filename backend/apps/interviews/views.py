@@ -12,6 +12,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAdminRole, IsStudent
+from apps.ai.errors import AiError
+from apps.ai.interview_service import transcribe_answer
 from config.throttling import AiThrottle
 
 from . import services
@@ -162,6 +164,75 @@ class InterviewAnswerView(APIView):
         else:
             body["completed"] = False
         return Response(body, status=status.HTTP_200_OK)
+
+
+class InterviewTranscribeView(APIView):
+    """POST /api/interviews/transcribe/ - speech-to-text for one recorded answer.
+
+    Multipart body: ``audio`` file. Only the transcript is returned; the audio
+    is passed to the provider in memory and never stored.
+    """
+
+    permission_classes = [IsStudent]
+    throttle_classes = [AiThrottle]
+
+    MAX_AUDIO_BYTES = 10 * 1024 * 1024
+    ALLOWED_TYPES = {
+        "audio/webm",
+        "audio/ogg",
+        "audio/wav",
+        "audio/x-wav",
+        "audio/mp4",
+        "audio/m4a",
+        "audio/x-m4a",
+        "audio/mpeg",
+        "audio/mp3",
+        "audio/opus",
+        "audio/aac",
+        "audio/flac",
+    }
+
+    def post(self, request):
+        audio = request.FILES.get("audio")
+        if audio is None:
+            return _error(
+                "Record an answer before requesting a transcript.",
+                "audio_required",
+                status.HTTP_400_BAD_REQUEST,
+            )
+        if audio.size == 0:
+            return _error(
+                "The recording was empty. Try recording again.",
+                "audio_empty",
+                status.HTTP_400_BAD_REQUEST,
+            )
+        if audio.size > self.MAX_AUDIO_BYTES:
+            return _error(
+                "That recording is too long. Keep answers under about two minutes.",
+                "audio_too_large",
+                status.HTTP_400_BAD_REQUEST,
+            )
+        mime_type = (audio.content_type or "").split(";", 1)[0].strip().lower()
+        if mime_type not in self.ALLOWED_TYPES:
+            return _error(
+                "That audio format is not supported. Try a different browser or type your answer.",
+                "audio_type_unsupported",
+                status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            result = transcribe_answer(audio.read(), mime_type)
+        except AiError:
+            return _error(
+                "Speech-to-text is temporarily unavailable. Type your answer instead.",
+                "transcription_unavailable",
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response(
+            {"text": result["text"], "source": result["source"]},
+            status=status.HTTP_200_OK,
+        )
 
 
 class InterviewCompleteView(APIView):

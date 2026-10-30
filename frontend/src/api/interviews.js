@@ -11,6 +11,14 @@ export const answerInterview = (sessionId, answer, clientToken = '') =>
     })
     .then(({ data }) => data)
 
+export const transcribeInterviewAudio = (blob) => {
+  const form = new FormData()
+  const type = blob.type || 'audio/webm'
+  const ext = type.includes('ogg') ? 'ogg' : type.includes('mp4') ? 'm4a' : 'webm'
+  form.append('audio', blob, `answer.${ext}`)
+  return client.post('/interviews/transcribe/', form).then(({ data }) => data)
+}
+
 export const fetchMyInterviews = () =>
   client.get('/interviews/mine/').then(({ data }) => data?.results ?? data)
 

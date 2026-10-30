@@ -12,6 +12,7 @@ If no provider/key is configured, `chat()` raises ProviderUnavailable; callers
 may catch it and fall back to deterministic offline logic.
 """
 
+import base64
 import json
 
 import httpx
@@ -62,6 +63,19 @@ class _Client:
         if self.provider == "gemini":
             return self._gemini_chat(messages, json_mode=json_mode, temperature=temperature, timeout=timeout)
         raise ProviderUnavailable(f"Unsupported AI_PROVIDER: {self.provider}")
+
+    def transcribe_audio(self, audio_bytes, mime_type, prompt, *, timeout=120.0):
+        """Transcribe raw audio with the provider's multimodal endpoint.
+
+        Only Gemini exposes inline audio through the configured REST API; the
+        OpenAI-compatible chat endpoint cannot accept audio this way, so callers
+        get a typed error instead of a silent wrong result.
+        """
+        if not self.provider or not self.key:
+            raise ProviderUnavailable("AI_PROVIDER / AI_API_KEY not configured")
+        if self.provider != "gemini":
+            raise ProviderUnavailable("Audio transcription requires AI_PROVIDER=gemini")
+        return self._gemini_transcribe(audio_bytes, mime_type, prompt, timeout=timeout)
 
 
     # ------------------------------------------------------------------
@@ -131,6 +145,42 @@ class _Client:
             text = stripped
         return text
 
+    def _gemini_transcribe(self, audio_bytes, mime_type, prompt, *, timeout):
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}"
+            ":generateContent"
+        )
+        payload = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {"text": prompt},
+                        {
+                            "inlineData": {
+                                "mimeType": mime_type,
+                                "data": base64.b64encode(audio_bytes).decode("ascii"),
+                            }
+                        },
+                    ],
+                }
+            ],
+            "generationConfig": {"temperature": 0},
+        }
+        resp = _post(
+            url,
+            json=payload,
+            headers={"x-goog-api-key": self.key},
+            timeout=timeout,
+        )
+        try:
+            body = resp.json()
+            parts = body["candidates"][0]["content"]["parts"]
+            text = "".join(part.get("text", "") for part in parts)
+        except (KeyError, IndexError, TypeError, ValueError):
+            raise ProviderUnavailable("Gemini returned no transcription")
+        return text.strip()
+
 
 def _client():
     """Build a client from the current settings (never cached)."""
@@ -139,6 +189,12 @@ def _client():
 
 def chat(messages, **kwargs):
     return _client().chat(messages, **kwargs)
+
+
+def transcribe(audio_bytes, mime_type, prompt, *, timeout=120.0):
+    return _client().transcribe_audio(
+        audio_bytes, mime_type, prompt, timeout=timeout
+    )
 
 
 def chat_json(messages, *, temperature=0.4, timeout=60.0):

@@ -26,6 +26,39 @@ export const getSpeechRecognition = () => {
 /** True when this browser can transcribe speech in-page. */
 export const speechRecognitionSupported = () => Boolean(getSpeechRecognition())
 
+/** Microsoft Edge ships SpeechRecognition but its cloud backend often returns
+ * no results at all, so the interview prefers uploading recorded audio there. */
+export const isEdgeBrowser = () =>
+  typeof navigator !== 'undefined' && /(?:Edg|EdgiOS|EdgA)\//.test(navigator.userAgent || '')
+
+/** True when the browser can record a compressed audio clip. */
+export const mediaRecorderSupported = () =>
+  typeof window !== 'undefined' && typeof window.MediaRecorder === 'function'
+
+/** Pick a MediaRecorder container Gemini can transcribe. */
+export const pickAudioMimeType = () => {
+  if (!mediaRecorderSupported()) return ''
+  const candidates = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/ogg;codecs=opus',
+    'audio/mp4',
+  ]
+  if (typeof window.MediaRecorder.isTypeSupported !== 'function') return ''
+  return candidates.find((type) => window.MediaRecorder.isTypeSupported(type)) || ''
+}
+
+/**
+ * True when the browser should record audio and let the backend transcribe it
+ * instead of using the in-page Web Speech API.
+ */
+export const prefersServerTranscription = () =>
+  typeof window !== 'undefined' &&
+  window.isSecureContext !== false &&
+  isEdgeBrowser() &&
+  mediaRecorderSupported() &&
+  Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
+
 /**
  * Why voice input cannot be used right now, or null when it can.
  *

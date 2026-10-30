@@ -1,9 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { apiError } from '../../api/client'
+import { transcribeInterviewAudio } from '../../api/interviews'
+import { useAudioInputs } from '../../hooks/useAudioInputs'
 import { useAudioLevel } from '../../hooks/useAudioLevel'
+import { useAudioRecorder } from '../../hooks/useAudioRecorder'
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
-import { isUsableTranscript, makeClientToken, TTS_UNSUPPORTED_MESSAGE, UNSUPPORTED_MESSAGE } from '../../lib/speech'
+import {
+  isUsableTranscript,
+  makeClientToken,
+  prefersServerTranscription,
+  TTS_UNSUPPORTED_MESSAGE,
+  UNSUPPORTED_MESSAGE,
+} from '../../lib/speech'
 
 /**
  * Real-time voice interview stage.
@@ -58,6 +67,14 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
   const tokenRef = useRef('')
   const spokenIdsRef = useRef(new Set())
 
+  const [inputId, setInputId] = useState(() => {
+    try {
+      return localStorage.getItem('careerai_mic') || ''
+    } catch {
+      return ''
+    }
+  })
+
   const tts = useSpeechSynthesis()
   const stt = useSpeechRecognition({
     onFinal: (text) => {
@@ -65,10 +82,16 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
       setError('')
     },
   })
+  const recorder = useAudioRecorder()
+  const { devices: microphones, refresh: refreshMicrophones } = useAudioInputs()
+  // Edge's in-page recognition often returns no results at all, so there the
+  // panel records audio and lets the AI backend transcribe it instead.
+  const serverVoice = prefersServerTranscription()
   const { cancel: cancelTts } = tts
   const { start: startListening, stop: stopListening, reset: resetListening, interim } = stt
-  // Runs alongside recognition purely to drive the level bar.
-  const meter = useAudioLevel()
+  // Runs alongside recognition purely to drive the level bar. In server mode it
+  // owns the same stream the recorder uses, so only one microphone is opened.
+  const meter = useAudioLevel({ deviceId: inputId })
   const {
     start: startMeter,
     stop: stopMeter,
@@ -77,9 +100,10 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
     silent: micSilent,
   } = meter
 
-  const voiceAvailable = stt.supported
+  const recording = serverVoice ? recorder.recording : stt.listening
+  const voiceAvailable = serverVoice || stt.supported
   const ttsAvailable = tts.supported
-  const voiceBlocker = stt.blocker
+  const voiceBlocker = voiceAvailable ? null : stt.blocker
 
   // Announce the current question, but only once per question.
   useEffect(() => {
@@ -118,6 +142,7 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
     resetListening()
     // Never leave the meter running into the next question.
     stopMeter()
+    recorder.cancel()
     tokenRef.current = makeClientToken()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question])
@@ -127,10 +152,61 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
     [transcript, typed],
   )
 
-  const canSubmit = answer.length > 0 && !submitting && stage !== 'processing'
+  const canSubmit = answer.length > 0 && !submitting && stage !== 'processing' && !recording
+
+  const onMicChange = useCallback((event) => {
+    const value = event.target.value
+    setInputId(value)
+    try {
+      localStorage.setItem('careerai_mic', value)
+    } catch {
+      // Storage can be blocked; the selection still works for this session.
+    }
+  }, [])
 
   const onMic = useCallback(async () => {
     setError('')
+
+    if (serverVoice) {
+      if (recorder.recording) {
+        const blob = await recorder.stop()
+        stopMeter()
+        if (!blob || blob.size === 0) {
+          setStage('awaiting_answer')
+          setError('No audio was recorded. Check the microphone and try again, or type your answer.')
+          return
+        }
+        setStage('processing')
+        try {
+          const result = await transcribeInterviewAudio(blob)
+          const text = String(result?.text || '').trim()
+          if (!text) {
+            setStage('awaiting_answer')
+            setError('No speech was detected in that recording. Try again, or type your answer.')
+            return
+          }
+          setTranscript(text)
+          setStage('awaiting_answer')
+        } catch (err) {
+          setStage('awaiting_answer')
+          setError(apiError(err, 'Could not transcribe your answer. Type it instead.'))
+        }
+        return
+      }
+
+      setStage('listening')
+      const stream = await startMeter()
+      refreshMicrophones()
+      if (!stream || !recorder.start(stream)) {
+        stopMeter()
+        setStage('awaiting_answer')
+        setError(
+          'The microphone could not be started. Check Windows microphone settings and try again.',
+        )
+      }
+      return
+    }
+
     if (stt.listening) {
       stopListening()
       stopMeter()
@@ -143,8 +219,18 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
     // one loses the permission prompt. The meter is still best effort: a
     // failure here must never block the answer.
     await startMeter()
+    refreshMicrophones()
     startListening()
-  }, [stt.listening, startListening, stopListening, startMeter, stopMeter])
+  }, [
+    serverVoice,
+    recorder,
+    startMeter,
+    stopMeter,
+    refreshMicrophones,
+    stt.listening,
+    startListening,
+    stopListening,
+  ])
 
   const onSubmit = useCallback(async () => {
     if (!canSubmit) return
@@ -157,6 +243,7 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
     setError('')
     setStage('processing')
     stopListening()
+    recorder.cancel()
     stopMeter()
     try {
       const res = await onAnswered(text, tokenRef.current)
@@ -181,7 +268,7 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
     } finally {
       setSubmitting(false)
     }
-  }, [answer, canSubmit, onAnswered, onCompleted, question, tts, typed, stopListening, stopMeter])
+  }, [answer, canSubmit, onAnswered, onCompleted, question, recorder, tts, typed, stopListening, stopMeter])
 
   const onRepeat = useCallback(() => {
     if (!question) return
@@ -289,18 +376,39 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
           <p className="muted small">YOUR TURN</p>
           <div className="voice-controls">
             <button
-              className={`btn ${stt.listening ? 'btn-danger' : 'btn-primary'} mic-btn`}
+              className={`btn ${recording ? 'btn-danger' : 'btn-primary'} mic-btn`}
               onClick={onMic}
-              disabled={!voiceAvailable || submitting}
+              disabled={!voiceAvailable || submitting || (serverVoice && stage === 'processing')}
             >
-              {stt.listening ? '⏹ Stop recording' : '🎤 Start speaking'}
+              {recording ? '⏹ Stop recording' : '🎤 Start speaking'}
             </button>
-            {stt.listening && (
+            {recording && (
               <span className={meter.speaking ? 'voice-live' : 'muted small'}>
-                {meter.speaking ? '🔊 Voice detected' : 'Listening…'}
+                {meter.speaking ? '🔊 Voice detected' : 'Recording…'}
               </span>
             )}
           </div>
+
+          {serverVoice && (
+            <>
+              <label>
+                Microphone
+                <select value={inputId} onChange={onMicChange} disabled={recording}>
+                  <option value="">System default</option>
+                  {microphones.map((device, index) => (
+                    <option key={device.deviceId || index} value={device.deviceId}>
+                      {device.label || `Microphone ${index + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="muted small">
+                Edge&apos;s built-in speech recognition is unreliable, so your answer is
+                recorded and transcribed by the AI. If the level bar stays flat, choose
+                the microphone that is actually connected above.
+              </p>
+            </>
+          )}
 
           {/* Live input level. The bar is driven straight from the analyser so it
               stays smooth instead of re-rendering the interview 60 times a second. */}
@@ -313,7 +421,7 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
                 />
               </div>
               <span className="muted small">
-                {stt.listening
+                {recording
                   ? meter.active
                     ? `Input level${micDevice ? ` — ${micDevice}` : ''} — speak to make it move`
                     : 'Starting microphone…'
@@ -322,7 +430,7 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
             </div>
           )}
           {meter.error && <div className="alert warn">{meter.error}</div>}
-          {micSilent && stt.listening && (
+          {micSilent && recording && (
             <div className="alert warn">
               No sound is reaching the browser. Check the microphone is connected,
               unmuted and set as the default input device (Windows: Settings → System →
@@ -330,7 +438,8 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
             </div>
           )}
 
-          {stt.error && <div className="alert warn">{stt.error}</div>}
+          {!serverVoice && stt.error && <div className="alert warn">{stt.error}</div>}
+          {serverVoice && recorder.error && <div className="alert warn">{recorder.error}</div>}
 
           <label>
             Recognised transcript
@@ -338,14 +447,20 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
               rows={3}
               value={transcript}
               onChange={(e) => setTranscript(e.target.value)}
-              placeholder={voiceAvailable
-                ? 'Your speech appears here while you talk. Review it before submitting.'
-                : 'Voice input is unavailable here. Type your answer below.'}
+              placeholder={serverVoice
+                ? 'Press Start speaking, then Stop recording, and the AI will transcribe your answer here.'
+                : voiceAvailable
+                  ? 'Your speech appears here while you talk. Review it before submitting.'
+                  : 'Voice input is unavailable here. Type your answer below.'}
             />
           </label>
-          {stt.listening && (
+          {recording && (
             <p className="muted small">
-              {interim ? `Hearing: “${interim}”` : 'Listening… speak now, then press Stop recording.'}
+              {serverVoice
+                ? 'Recording… speak now, then press Stop recording to transcribe.'
+                : interim
+                  ? `Hearing: “${interim}”`
+                  : 'Listening… speak now, then press Stop recording.'}
             </p>
           )}
 
@@ -364,7 +479,7 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
               {submitting ? 'Submitting…' : 'Submit answer'}
             </button>
             {submitting && <span className="muted small">Evaluating your answer…</span>}
-            {spokeCurrent && !stt.listening && !submitting && (
+            {spokeCurrent && !recording && !submitting && (
               <span className="muted small">You can answer now.</span>
             )}
           </div>

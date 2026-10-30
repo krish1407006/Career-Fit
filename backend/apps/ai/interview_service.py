@@ -215,6 +215,46 @@ SCORE_NOTE = (
     "not an objective measure of interview ability and are not a hiring decision."
 )
 
+TRANSCRIBE_PROMPT = """Transcribe the candidate's spoken mock-interview answer.
+
+Return ONLY the words the candidate said, with normal punctuation and casing.
+Do not summarise, translate, correct their technical claims, or add commentary.
+If no speech is audible, return an empty string.
+If the audio contains background noise only, return an empty string."""
+
+
+# ----------------------------------------------------------------------
+# Spoken-answer transcription
+# ----------------------------------------------------------------------
+
+def transcribe_answer(audio_bytes, mime_type):
+    """Transcribe one recorded answer -> {"text", "source", "provider"}.
+
+    The browser may upload audio when its in-page speech recognition is
+    unavailable (notably Edge). This is the only path that accepts raw audio;
+    it is passed straight to the provider and is never written to disk.
+    """
+    if not providers.is_configured():
+        raise ProviderUnavailable("Audio transcription is not configured")
+
+    try:
+        raw = providers.transcribe(
+            audio_bytes, mime_type, TRANSCRIBE_PROMPT, timeout=120
+        )
+    except AiError as exc:
+        logger.warning("Interview audio transcription failed (%s).", exc.__class__.__name__)
+        raise
+
+    text = _as_text(raw, MAX_ANSWER_CHARS)
+    # Some models wrap a transcript in quotes despite the instruction.
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in {'"', "'"}:
+        text = text[1:-1].strip()
+    return {
+        "text": text,
+        "source": "ai",
+        "provider": providers.provider_name(),
+    }
+
 
 # ----------------------------------------------------------------------
 # Candidate context (job, skills, resume analysis) -- no AI involved
@@ -591,5 +631,6 @@ __all__ = [
     "build_report",
     "evaluate_answer",
     "generate_question",
+    "transcribe_answer",
 ]
 

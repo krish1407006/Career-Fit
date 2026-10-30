@@ -9,6 +9,7 @@ from .views import (
     InterviewDetailView,
     InterviewReportView,
     InterviewStartView,
+    InterviewTranscribeView,
     MyInterviewsView,
 )
 
@@ -23,6 +24,7 @@ urlpatterns = [
     path("interviews/mine/", MyInterviewsView.as_view(), name="my-interviews"),
     path("interviews/", MyInterviewsView.as_view(), name="interview-list"),
     path("interviews/active/", ActiveInterviewView.as_view(), name="interview-active"),
+    path("interviews/transcribe/", InterviewTranscribeView.as_view(), name="interview-transcribe"),
     path("interviews/<int:pk>/", InterviewDetailView.as_view(), name="interview-detail"),
     path("interviews/<int:pk>/answer/", InterviewAnswerView.as_view(), name="interview-answer"),
     path("interviews/<int:pk>/complete/", InterviewCompleteView.as_view(), name="interview-complete"),
