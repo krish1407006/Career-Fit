@@ -29,6 +29,17 @@ const STATE_LABEL = {
   completed: 'Interview completed',
 }
 
+const scoreClass = (score) => (score >= 8 ? 'ok' : score >= 5 ? 'warn' : 'bad')
+
+const FeedbackList = ({ items }) => {
+  if (!items?.length) return null
+  return (
+    <ul className="report-list">
+      {items.map((item, i) => <li key={i}>{item}</li>)}
+    </ul>
+  )
+}
+
 export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, onEnd }) {
   const [stage, setStage] = useState('ai_speaking')
   const [question, setQuestion] = useState(session?.current_question?.content || '')
@@ -42,6 +53,8 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
   )
   const [total, setTotal] = useState(session?.total_questions || 5)
   const [spokeCurrent, setSpokeCurrent] = useState(false)
+  const [feedback, setFeedback] = useState(null)
+  const [feedbackQuestion, setFeedbackQuestion] = useState('')
   const tokenRef = useRef('')
   const spokenIdsRef = useRef(new Set())
 
@@ -145,6 +158,10 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
         return
       }
       setStage('evaluating')
+      // Keep the AI's verdict visible while the next question is asked, so the
+      // student sees whether the answer was right and what to fix.
+      setFeedback(res?.evaluation || null)
+      setFeedbackQuestion(question)
       setQuestionNumber((n) => n + 1)
       if (res?.total_questions) setTotal(res.total_questions)
       setQuestion(res?.next_question || '')
@@ -155,7 +172,7 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
     } finally {
       setSubmitting(false)
     }
-  }, [answer, canSubmit, onAnswered, onCompleted, tts, typed, stopListening, stopMeter])
+  }, [answer, canSubmit, onAnswered, onCompleted, question, tts, typed, stopListening, stopMeter])
 
   const onRepeat = useCallback(() => {
     if (!question) return
@@ -221,6 +238,42 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
           {!ttsAvailable && <span className="muted small">Speech synthesis unavailable</span>}
         </div>
       </div>
+
+      {feedback && !done && (
+        <div className="voice-panel answer-feedback">
+          <div className="page-head">
+            <div>
+              <p className="muted small">AI FEEDBACK ON YOUR LAST ANSWER</p>
+              {feedbackQuestion && <p className="muted small">“{feedbackQuestion}”</p>}
+            </div>
+            {feedback.score !== null && feedback.score !== undefined && (
+              <span className={`score-tag ${scoreClass(feedback.score)}`}>
+                {feedback.score}/10
+              </span>
+            )}
+          </div>
+          {feedback.notice && <div className="alert warn">{feedback.notice}</div>}
+          {feedback.technical_correctness && (
+            <>
+              <p className="muted small">Technical correctness</p>
+              <p>{feedback.technical_correctness}</p>
+            </>
+          )}
+          {feedback.feedback && <p className="summary">{feedback.feedback}</p>}
+          {feedback.strengths?.length > 0 && (
+            <>
+              <p className="muted small">What worked</p>
+              <FeedbackList items={feedback.strengths} />
+            </>
+          )}
+          {feedback.improvements?.length > 0 && (
+            <>
+              <p className="muted small">What to improve</p>
+              <FeedbackList items={feedback.improvements} />
+            </>
+          )}
+        </div>
+      )}
 
       {!done && question && (
         <div className="voice-panel student">

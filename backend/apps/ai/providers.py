@@ -82,25 +82,53 @@ class _Client:
             raise ProviderUnavailable("AI provider returned an unexpected response shape")
 
     def _gemini_chat(self, messages, *, json_mode, temperature, timeout):
+        # Send the key as a header, never in the URL: query strings end up in
+        # proxy/access logs. Newer auth keys (AQ...) also require this form.
         url = (
             f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}"
-            f":generateContent?key={self.key}"
+            ":generateContent"
         )
-        contents = []
-        for m in messages:
-            role = "user" if m["role"] == "user" else "model"
-            contents.append({"role": role, "parts": [{"text": m["content"]}]})
-        resp = _post(url, json={"contents": contents,
-                                "generationConfig": {"temperature": temperature}},
-                     timeout=timeout)
+        # Gemini has no "system" role: system prompts belong in systemInstruction
+        # and the conversation alternates user/model. Mapping a system message to
+        # "model" (as the old code did) told the model it had already said the
+        # instructions, which weakened every prompt.
+        system_parts = [
+            m["content"] for m in messages
+            if m.get("role") == "system" and m.get("content")
+        ]
+        contents = [
+            {
+                "role": "user" if m.get("role") == "user" else "model",
+                "parts": [{"text": m.get("content", "")}],
+            }
+            for m in messages
+            if m.get("role") != "system"
+        ]
+        payload = {"contents": contents,
+                   "generationConfig": {"temperature": temperature}}
+        if system_parts:
+            payload["systemInstruction"] = {"parts": [{"text": "\n\n".join(system_parts)}]}
+        if json_mode:
+            # Ask Gemini for raw JSON instead of prose that has to be salvaged.
+            payload["generationConfig"]["responseMimeType"] = "application/json"
+        resp = _post(
+            url,
+            json=payload,
+            headers={"x-goog-api-key": self.key},
+            timeout=timeout,
+        )
         try:
             body = resp.json()
             text = body["candidates"][0]["content"]["parts"][0]["text"]
         except (KeyError, IndexError, TypeError, ValueError):
             raise ProviderUnavailable("Gemini returned no content")
         # Strip markdown code fences that Gemini sometimes wraps JSON in.
-        if text.strip().startswith("```"):
-            text = text.strip().removeprefix("```json").removeprefix("```JAVA").strip("`")
+        stripped = text.strip()
+        if stripped.startswith("```"):
+            stripped = stripped.split("\n", 1)[-1].strip()
+            if stripped.endswith("```"):
+                stripped = stripped[:-3].strip()
+            text = stripped
         return text
 
 

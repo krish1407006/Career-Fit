@@ -785,6 +785,7 @@ input:disabled { background: var(--bg); color: var(--muted); }
 }
 .voice-panel.interviewer { background: var(--grad-soft); border-color: #c3d0f7; }
 .voice-panel.student { background: #fff; }
+.voice-panel.answer-feedback { background: #f7f9ff; border-color: #c3d0f7; }
 
 .voice-question { margin: 0; font-size: 19px; font-weight: 700; line-height: 1.45; }
 .voice-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -1194,6 +1195,7 @@ input:disabled { background: var(--bg); color: var(--muted); }
 :root[data-theme='dark'] .voice-stage.stage-evaluating { background: rgba(251, 191, 36, 0.18); color: #fcd34d; border-color: rgba(251, 191, 36, 0.35); }
 :root[data-theme='dark'] .voice-panel { background: var(--surface); border-color: var(--border); }
 :root[data-theme='dark'] .voice-panel.interviewer,
+:root[data-theme='dark'] .voice-panel.answer-feedback,
 :root[data-theme='dark'] .resume-interview { background: var(--grad-soft); border-color: rgba(124, 139, 255, 0.35); }
 
 :root[data-theme='dark'] .warn-box { background: rgba(251, 191, 36, 0.14); color: #fde68a; border-color: rgba(251, 191, 36, 0.32); }

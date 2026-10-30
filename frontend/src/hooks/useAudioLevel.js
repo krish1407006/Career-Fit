@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { audioLevelSupported, rmsToLevel, smoothLevel, SPEAKING_LEVEL } from '../lib/speech'
+import {
+  audioLevelSupported,
+  rmsToLevel,
+  SILENCE_LEVEL,
+  smoothLevel,
+  SPEAKING_LEVEL,
+} from '../lib/speech'
 
 /**
  * Live microphone level for the recording meter.
@@ -21,6 +27,10 @@ export function useAudioLevel({ onSpeakingChange } = {}) {
   const [active, setActive] = useState(false)
   const [error, setError] = useState('')
   const [speaking, setSpeaking] = useState(false)
+  // True when the stream is open but nothing has been heard for a while, which
+  // almost always means the wrong input device is selected or it is muted.
+  const [silent, setSilent] = useState(false)
+  const [deviceLabel, setDeviceLabel] = useState('')
 
   // Owned here rather than passed in, so the animation frame can write to it
   // without reaching through an argument.
@@ -31,6 +41,8 @@ export function useAudioLevel({ onSpeakingChange } = {}) {
   const samplesRef = useRef(null)
   const smoothedRef = useRef(0)
   const speakingRef = useRef(false)
+  const silentRef = useRef(false)
+  const lastSoundAtRef = useRef(0)
   const onSpeakingChangeRef = useRef(onSpeakingChange)
 
   useEffect(() => {
@@ -61,7 +73,11 @@ export function useAudioLevel({ onSpeakingChange } = {}) {
     if (bar) bar.style.width = '0%'
     smoothedRef.current = 0
     speakingRef.current = false
+    silentRef.current = false
+    lastSoundAtRef.current = 0
     setSpeaking(false)
+    setSilent(false)
+    setDeviceLabel('')
     setActive(false)
   }, [])
 
