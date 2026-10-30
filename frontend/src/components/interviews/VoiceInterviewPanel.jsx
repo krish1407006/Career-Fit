@@ -87,6 +87,13 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
   })
   const recorder = useAudioRecorder()
   const { devices: microphones, refresh: refreshMicrophones } = useAudioInputs()
+
+  // The recogniser reports partial and final words while it is still open.
+  // Mirror them into the editable transcript so the student sees progress
+  // before the session ends, instead of an empty box while they speak.
+  useEffect(() => {
+    if (stt.transcript) setTranscript(stt.transcript)
+  }, [stt.transcript])
   // Edge's in-page recognition often returns no results at all, so there the
   // panel records audio and lets the AI backend transcribe it instead.
   const serverVoice = prefersServerTranscription()
@@ -326,8 +333,11 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
 
       {error && <div className="alert error">{error}</div>}
 
-      <div className="voice-panel interviewer">
-        <p className="muted small">AI INTERVIEWER</p>
+       <div className="voice-panel interviewer">
+        <div className={`ai-orb ${tts.speaking ? 'is-speaking' : ''}`} aria-hidden="true">
+          <span className="ai-orb-ring" />
+          <span className="ai-orb-core" />
+        </div>
         <p className="voice-question">
           {question || 'No question is ready yet. End the interview or start a new one.'}
         </p>

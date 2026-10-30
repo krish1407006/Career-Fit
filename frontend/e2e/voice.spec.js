@@ -33,8 +33,8 @@ const installFakeSTT = (page, mode) =>
       const fire = (fn, arg) => {
         try {
           fn?.(arg)
-        } catch (e) {
-          console.log('fake listener error', e?.message || String(e))
+        } catch {
+          // A listener threw; the fake must not take the page down with it.
         }
       }
       class FakeRecognition {
@@ -48,7 +48,6 @@ const installFakeSTT = (page, mode) =>
         }
 
         start() {
-          console.log('fake start', mode)
           if (mode === 'denied') {
             setTimeout(() => {
               fire(this.onerror, { error: 'not-allowed' })
@@ -63,7 +62,6 @@ const installFakeSTT = (page, mode) =>
             }, 20)
           } else if (mode === 'speech') {
             setTimeout(() => {
-              console.log('fake speech timer', typeof this.onresult)
               const final = { isFinal: true }
               final[0] = { transcript: 'I have spent five years building Django REST APIs.' }
               fire(this.onresult, { resultIndex: 0, results: [final] })
@@ -439,31 +437,4 @@ test('voice: a stale recogniser end cannot kill the next recording', async ({ pa
   expect(state.listening).toBe(true)
   expect(state.stageClass).toBe('stage-listening')
   expect(state.disabled).toBe(false)
-})
-
-test.only('debug stt', async ({ page }) => {
-  page.on('console', (msg) => console.log('PAGE', msg.text()))
-  await installInstantTTS(page)
-  await installFakeSTT(page, 'speech')
-  await startInterview(page)
-  console.log('env', await page.evaluate(() => ({
-    sr: typeof window.SpeechRecognition,
-    wsr: typeof window.webkitSpeechRecognition,
-    sec: window.isSecureContext,
-    ls: localStorage.getItem('careerai_voice_engine'),
-    md: Boolean(navigator.mediaDevices?.getUserMedia),
-    mr: typeof window.MediaRecorder,
-  })))
-  await mic(page).click()
-  await page.waitForTimeout(1500)
-  console.log('after', await page.evaluate(() => ({
-    textareas: [...document.querySelectorAll('textarea')].map((e) => ({
-      value: e.value,
-      aria: e.getAttribute('aria-label'),
-      id: e.id,
-      placeholder: e.placeholder,
-    })),
-    stage: document.querySelector('.voice-stage')?.className,
-    alerts: [...document.querySelectorAll('.alert')].map((e) => e.textContent),
-  })))
 })
