@@ -105,6 +105,13 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
   const ttsAvailable = tts.supported
   const voiceBlocker = voiceAvailable ? null : stt.blocker
 
+  // A saved device can disappear (headset unplugged); fall back to the system
+  // default instead of failing every getUserMedia call with an exact-device id.
+  useEffect(() => {
+    if (!inputId || microphones.length === 0) return
+    if (!microphones.some((device) => device.deviceId === inputId)) setInputId('')
+  }, [inputId, microphones])
+
   // Announce the current question, but only once per question.
   useEffect(() => {
     if (!question) {
