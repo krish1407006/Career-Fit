@@ -91,7 +91,22 @@ export function useAudioLevel({ onSpeakingChange, deviceId = '' } = {}) {
       const constraints = deviceId
         ? { audio: { deviceId: { exact: deviceId } } }
         : { audio: true }
-      const stream = await navigator.mediaDevices.getUserMedia(constraints)
+      let stream
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints)
+      } catch (err) {
+        // A saved device can be unplugged between listing and recording. Fall
+        // back to the system default instead of leaving the interview unusable.
+        if (
+          deviceId &&
+          (err?.name === 'OverconstrainedError' || err?.name === 'NotFoundError')
+        ) {
+          setError('That microphone is unavailable, so the system default was used.')
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        } else {
+          throw err
+        }
+      }
       streamRef.current = stream
       const track = stream.getAudioTracks?.()[0]
       setDeviceLabel(track?.label || '')

@@ -24,10 +24,10 @@ import {
  *              -> completed
  *
  * Nothing records the microphone until the student presses the mic button, and
- * no answer is submitted without an explicit "Submit answer". Chrome recognises
- * speech in-page, so only the transcript leaves the browser. Edge's recogniser
- * is unreliable, so there the recorded answer is sent once for AI transcription
- * and is never stored by the backend.
+ * no answer is submitted without an explicit "Submit answer". The recorded
+ * answer is sent once for AI transcription, which lets the student pick the
+ * exact microphone and does not depend on the browser's flaky recogniser. The
+ * backend never stores the audio; only the returned transcript is submitted.
  */
 
 const STATE_LABEL = {
@@ -424,9 +424,9 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
                 </select>
               </label>
               <p className="muted small">
-                Edge&apos;s built-in speech recognition is unreliable, so your answer is
-                recorded and transcribed by the AI. If the level bar stays flat, choose
-                the microphone that is actually connected above.
+                Your answer is recorded and transcribed by the AI. If the level bar stays
+                flat, choose the microphone that is actually connected above — the system
+                default is often a disconnected Bluetooth headset.
               </p>
             </>
           )}
@@ -453,9 +453,10 @@ export default function VoiceInterviewPanel({ session, onAnswered, onCompleted, 
           {meter.error && <div className="alert warn">{meter.error}</div>}
           {micSilent && recording && (
             <div className="alert warn">
-              No sound is reaching the browser. Check the microphone is connected,
-              unmuted and set as the default input device (Windows: Settings → System →
-              Sound → Input), then press Stop recording and try again.
+              No sound is reaching the browser. Choose a different microphone in the
+              dropdown above, and check that it is connected and unmuted. You can also
+              set it as the Windows default input (Settings → System → Sound → Input),
+              then press Stop recording and try again.
             </div>
           )}
 

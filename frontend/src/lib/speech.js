@@ -26,11 +26,6 @@ export const getSpeechRecognition = () => {
 /** True when this browser can transcribe speech in-page. */
 export const speechRecognitionSupported = () => Boolean(getSpeechRecognition())
 
-/** Microsoft Edge ships SpeechRecognition but its cloud backend often returns
- * no results at all, so the interview prefers uploading recorded audio there. */
-export const isEdgeBrowser = () =>
-  typeof navigator !== 'undefined' && /(?:Edg|EdgiOS|EdgA)\//.test(navigator.userAgent || '')
-
 /** True when the browser can record a compressed audio clip. */
 export const mediaRecorderSupported = () =>
   typeof window !== 'undefined' && typeof window.MediaRecorder === 'function'
@@ -51,13 +46,24 @@ export const pickAudioMimeType = () => {
 /**
  * True when the browser should record audio and let the backend transcribe it
  * instead of using the in-page Web Speech API.
+ *
+ * This is the default everywhere because it uses the microphone chosen in the
+ * app (the Web Speech API always uses the OS default) and does not depend on
+ * Edge/Chrome's cloud recogniser. A test can force the old path by setting
+ * localStorage `careerai_voice_engine` to `browser`.
  */
-export const prefersServerTranscription = () =>
-  typeof window !== 'undefined' &&
-  window.isSecureContext !== false &&
-  isEdgeBrowser() &&
-  mediaRecorderSupported() &&
-  Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
+export const prefersServerTranscription = () => {
+  if (typeof window === 'undefined') return false
+  if (window.isSecureContext === false) return false
+  if (!mediaRecorderSupported()) return false
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false
+  try {
+    if (window.localStorage?.getItem('careerai_voice_engine') === 'browser') return false
+  } catch {
+    // Private mode can block storage; server transcription still works.
+  }
+  return true
+}
 
 /**
  * Why voice input cannot be used right now, or null when it can.

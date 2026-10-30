@@ -4,9 +4,21 @@ import { authState, gotoAndWait } from './helpers.js'
 // The voice interview is a conversation with a human, so the parts that need
 // real speech are covered by a person (see e2e/VOICE-MANUAL.md). What is
 // automated here is everything deterministic: capability detection, failure
-// messages, the listening/turn state machine, microphone release and the
-// promise that no audio ever leaves the browser.
+// messages, the listening/turn state machine, microphone release, and both the
+// default AI-transcription path and the browser-recogniser fallback.
 test.use({ storageState: authState('e2e-student') })
+
+// Most tests drive the in-page recogniser with a fake. Force the browser
+// engine so the app does not take the recording + AI-transcription path.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('careerai_voice_engine', 'browser')
+    } catch {
+      // about:blank can block storage; the app origin will allow it.
+    }
+  })
+})
 
 /**
  * Replace the browser's SpeechRecognition with a controllable fake.
@@ -170,6 +182,56 @@ test.afterEach(async ({ page }) => {
   await cancelActive(page)
 })
 
+test('voice: the default path records the chosen microphone and transcribes it', async ({
+  page,
+}) => {
+  await installInstantTTS(page)
+  // Undo the file-level browser-engine override so this exercises the default.
+  await page.addInitScript(() => {
+    try {
+      localStorage.removeItem('careerai_voice_engine')
+    } catch {
+      // about:blank can block storage; the app origin will allow it.
+    }
+  })
+
+  let uploaded = null
+  await page.route('**/api/interviews/transcribe/', async (route) => {
+    const request = route.request()
+    uploaded = {
+      method: request.method(),
+      contentType: request.headers()['content-type'] || '',
+      body: request.postDataBuffer(),
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        text: 'I have spent five years building Django REST APIs.',
+        source: 'ai',
+      }),
+    })
+  })
+
+  await startInterview(page)
+  await expect(page.getByLabel('Microphone')).toBeVisible()
+  await expect(page.getByText(/recorded and transcribed by the AI/)).toBeVisible()
+
+  await mic(page).click()
+  await expect(stage(page)).toHaveClass(/stage-listening/)
+  await expect(mic(page)).toHaveText(/Stop recording/)
+  await page.waitForTimeout(500)
+  await mic(page).click()
+
+  await expect(page.getByLabel('Recognised transcript')).toHaveValue(/Django REST APIs/, {
+    timeout: 15_000,
+  })
+  await expect(stage(page)).not.toHaveClass(/stage-listening/)
+  expect(uploaded?.method).toBe('POST')
+  expect(uploaded?.contentType).toContain('multipart/form-data')
+  expect(uploaded?.body?.length).toBeGreaterThan(0)
+})
+
 test('voice: a browser without speech recognition falls back to typing', async ({ page }) => {
   await installInstantTTS(page)
   await page.addInitScript(() => {
@@ -297,7 +359,9 @@ test('voice: a failed submit keeps the transcript and hands the turn back', asyn
   expect((await stageState(page)).listening).toBe(false)
 })
 
-test('voice: only the transcript is sent over the network, never audio', async ({ page }) => {
+test('voice: with the browser engine, only the transcript is sent over the network', async ({
+  page,
+}) => {
   await installInstantTTS(page)
   await installFakeSTT(page, 'speech')
   const requests = []
