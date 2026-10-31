@@ -253,17 +253,23 @@ class QuizStartView(APIView):
             quiz = Quiz.objects.annotate(total_questions=Count("questions")).get(pk=pk, is_active=True)
         except Quiz.DoesNotExist:
             return Response({"detail": "Quiz not found."}, status=status.HTTP_404_NOT_FOUND)
+        difficulty = (request.data.get("difficulty") or request.query_params.get("difficulty") or "").strip().lower()
         attempt, created = QuizAttempt.objects.get_or_create(student=request.user, quiz=quiz)
         if not created and attempt.status == QuizAttempt.Status.COMPLETED:
             return Response({"detail": "You have already completed this quiz."},
                             status=status.HTTP_400_BAD_REQUEST)
         questions = quiz.questions.all()
+        if difficulty in (Difficulty.EASY, Difficulty.MEDIUM, Difficulty.HARD):
+            questions = questions.filter(difficulty=difficulty)
+        if not questions.exists():
+            questions = quiz.questions.all()
         countdown = quiz.duration_minutes * 60 if quiz.duration_minutes else None
         return Response({
             "attempt_id": attempt.id,
             "quiz": QuizDetailSerializer(quiz).data,
             "questions": QuestionReadSerializer(questions, many=True).data,
             "countdown_seconds": countdown,
+            "difficulty_filter": difficulty if difficulty in (Difficulty.EASY, Difficulty.MEDIUM, Difficulty.HARD) else None,
         })
 
 

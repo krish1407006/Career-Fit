@@ -12,6 +12,7 @@ export default function QuizDetails() {
   const [row, setRow] = useState(null)
   const [error, setError] = useState('')
   const [starting, setStarting] = useState(false)
+  const [diff, setDiff] = useState('all')
 
   const load = useCallback(() => {
     fetchQuiz(id)
@@ -33,7 +34,7 @@ export default function QuizDetails() {
     setError('')
     setStarting(true)
     try {
-      await startQuiz(quiz.id)
+      await startQuiz(quiz.id, diff === 'all' ? null : diff)
       navigate(`/student/quizzes/${quiz.id}/attempt`)
     } catch (e) {
       const msg = apiError(e, 'Could not start quiz')
@@ -81,6 +82,20 @@ export default function QuizDetails() {
           <li>Pass mark is 60%.</li>
           {quiz.duration_minutes && <li>Timer starts as soon as you begin.</li>}
         </ul>
+        {!attempted && (
+          <div style={{ marginTop: 10, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              Select difficulty
+              <select value={diff} onChange={(e) => setDiff(e.target.value)}>
+                <option value="all">All levels</option>
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </label>
+            <span className="muted small">Choose level to practice only that difficulty.</span>
+          </div>
+        )}
         <div className="job-actions">
           {attempted ? (
             <Link

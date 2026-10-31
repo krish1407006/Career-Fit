@@ -4,8 +4,8 @@ export const fetchQuizzes = () => client.get('/quizzes/').then(({ data }) => dat
 
 export const fetchQuiz = (id) => client.get(`/quizzes/${id}/`).then(({ data }) => data)
 
-export const startQuiz = (id) =>
-  client.post(`/quizzes/${id}/start/`, {}).then(({ data }) => data)
+export const startQuiz = (id, difficulty) =>
+  client.post(`/quizzes/${id}/start/`, difficulty ? { difficulty } : {}).then(({ data }) => data)
 
 export const submitQuiz = (quizId, answers) =>
   client
