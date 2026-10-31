@@ -47,8 +47,18 @@ export default function QuizList() {
         </Link>
       </div>
       {error && <div className="alert error">{error}</div>}
+      <div className="filters" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          Difficulty
+          <select value={diff} onChange={(e) => setDiff(e.target.value)}>
+            {DIFFS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+          </select>
+        </label>
+      </div>
       <div className="job-list">
-        {quizzes.map((qz) => (
+        {quizzes
+          .filter((qz) => diff === 'all' || qz.difficulty === diff)
+          .map((qz) => (
           <div key={qz.id} className="card quiz-card">
             <div className="job-head">
               <div>
@@ -78,7 +88,7 @@ export default function QuizList() {
             </div>
           </div>
         ))}
-        {!quizzes.length && <p className="muted">No quizzes available yet.</p>}
+        {quizzes.filter((qz) => diff === 'all' || qz.difficulty === diff).length === 0 && <p className="muted">No quizzes match this filter.</p>}
       </div>
     </div>
   )
