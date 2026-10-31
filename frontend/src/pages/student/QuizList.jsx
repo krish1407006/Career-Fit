@@ -70,7 +70,7 @@ export default function QuizList() {
                   {qz.duration_minutes ? `${qz.duration_minutes} min` : 'No time limit'}
                 </p>
               </div>
-              {qz.attempted && (
+              {qz.attempted && qz.status === 'completed' && (
                 <span className={`score-tag ${qz.score_percent >= 60 ? 'ok' : 'bad'}`}>
                   {qz.score_percent}%
                 </span>
@@ -83,7 +83,7 @@ export default function QuizList() {
                 to={`/student/quizzes/${qz.id}`}
                 className="btn btn-primary btn-sm"
               >
-                {qz.attempted ? 'View' : 'Take quiz'}
+                {qz.attempted && qz.status === 'completed' ? 'View result' : qz.attempted && qz.status === 'in_progress' ? 'Resume' : 'Take quiz'}
               </Link>
             </div>
           </div>

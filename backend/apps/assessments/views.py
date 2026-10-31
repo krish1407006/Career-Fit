@@ -244,7 +244,7 @@ class QuizDetailView(APIView):
 
 
 class QuizStartView(APIView):
-    """Start a quiz: create the attempt (idempotent) and return questions sans answers."""
+    """Start a quiz: create/resume or start a new attempt."""
 
     permission_classes = [IsStudent]
 
@@ -254,10 +254,11 @@ class QuizStartView(APIView):
         except Quiz.DoesNotExist:
             return Response({"detail": "Quiz not found."}, status=status.HTTP_404_NOT_FOUND)
         difficulty = (request.data.get("difficulty") or request.query_params.get("difficulty") or "").strip().lower()
-        attempt, created = QuizAttempt.objects.get_or_create(student=request.user, quiz=quiz)
-        if not created and attempt.status == QuizAttempt.Status.COMPLETED:
-            return Response({"detail": "You have already completed this quiz."},
-                            status=status.HTTP_400_BAD_REQUEST)
+        attempt = QuizAttempt.objects.filter(
+            student=request.user, quiz=quiz, status=QuizAttempt.Status.IN_PROGRESS
+        ).order_by("-started_at").first()
+        if attempt is None:
+            attempt = QuizAttempt.objects.create(student=request.user, quiz=quiz)
         questions = quiz.questions.all()
         if difficulty in (Difficulty.EASY, Difficulty.MEDIUM, Difficulty.HARD):
             questions = questions.filter(difficulty=difficulty)

@@ -64,7 +64,7 @@ export default function QuizDetails() {
     return <div className="page-loading">Loading…</div>
   }
 
-  const attempted = Boolean(row?.attempted && row?.attempt_id)
+  const attempted = Boolean(row?.attempted && row?.attempt_id && row?.status === 'completed')
 
   return (
     <div className="page">

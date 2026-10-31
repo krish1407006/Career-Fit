@@ -75,9 +75,7 @@ class QuizAttempt(models.Model):
 
     class Meta:
         ordering = ["-started_at"]
-        constraints = [
-            models.UniqueConstraint(fields=["student", "quiz"], name="unique_student_quiz_attempt"),
-        ]
+        constraints = []
 
     def __str__(self):
         return f"{self.student.username} -> {self.quiz.title} ({self.score_percent}%)"
