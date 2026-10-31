@@ -22,6 +22,8 @@ const CATEGORY_LABELS = {
   django: 'Django',
   sql: 'SQL',
   dbms: 'DBMS',
+  oops: 'OOPS',
+  dsa: 'DSA',
   operating_systems: 'Operating Systems',
   computer_networks: 'Computer Networks',
   data_structures: 'Data Structures',

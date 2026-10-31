@@ -9,8 +9,8 @@ import {
 import { categoryLabel } from '../../lib/labels'
 
 const CATEGORIES = [
-  'python', 'javascript', 'django', 'sql', 'dbms', 'operating_systems',
-  'computer_networks', 'data_structures', 'aptitude', 'logical_reasoning',
+  'python', 'javascript', 'django', 'sql', 'dbms', 'oops', 'operating_systems',
+  'computer_networks', 'data_structures', 'dsa', 'aptitude', 'logical_reasoning',
 ]
 const DIFFICULTIES = ['easy', 'medium', 'hard']
 

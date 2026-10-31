@@ -16,9 +16,11 @@ class Quiz(models.Model):
         DJANGO = "django", "Django"
         SQL = "sql", "SQL"
         DBMS = "dbms", "DBMS"
+        OOPS = "oops", "OOPS"
         OPERATING_SYSTEMS = "operating_systems", "Operating Systems"
         COMPUTER_NETWORKS = "computer_networks", "Computer Networks"
         DATA_STRUCTURES = "data_structures", "Data Structures"
+        DSA = "dsa", "DSA"
         APTITUDE = "aptitude", "Aptitude"
         LOGICAL_REASONING = "logical_reasoning", "Logical Reasoning"
 

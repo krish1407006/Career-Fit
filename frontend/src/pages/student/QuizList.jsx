@@ -5,9 +5,17 @@ import { fetchQuizzes } from '../../api/quizzes'
 import { plural } from '../../lib/format'
 import { categoryLabel } from '../../lib/labels'
 
+const DIFFS = [
+  { value: 'all', label: 'All' },
+  { value: 'easy', label: 'Easy' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'hard', label: 'Hard' },
+]
+
 export default function QuizList() {
   const [quizzes, setQuizzes] = useState([])
   const [error, setError] = useState('')
+  const [diff, setDiff] = useState('all')
 
   const load = useCallback(() => {
     // The error is cleared when fresh data lands rather than before the
