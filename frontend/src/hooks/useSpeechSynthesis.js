@@ -67,6 +67,7 @@ export function useSpeechSynthesis() {
           if (voice) utterance.voice = voice
           let settled = false
           const finish = (spoke) => {
+            
             if (settled) return
             settled = true
             if (timer) clearTimeout(timer)
